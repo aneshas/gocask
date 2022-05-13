@@ -24,18 +24,18 @@ type keydir struct {
 	lastOffset int64
 }
 
-func (kd *keydir) Set(key string, eSize int64, vSize int32, t int32, file string) {
+func (kd *keydir) Set(key string, h header, file string) {
 	kd.m.Lock()
 	defer kd.m.Unlock()
 
 	entry := kdEntry{
-		ValuePos:  kd.lastOffset + eSize - int64(vSize),
-		ValueSize: vSize,
-		Timestamp: t,
+		ValuePos:  kd.lastOffset + h.EntrySize() - int64(h.Vsz),
+		ValueSize: h.Vsz,
+		Timestamp: h.T,
 		File:      file,
 	}
 
-	kd.lastOffset = kd.lastOffset + eSize
+	kd.lastOffset = kd.lastOffset + h.EntrySize()
 
 	kd.entries[key] = entry
 }

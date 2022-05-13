@@ -81,47 +81,36 @@ func (db *DB) init() error {
 }
 
 func (db *DB) walkFile(file *os.File) error {
-	var offset int64
-
-	h := emptyHeader()
-
 	for {
-		esz, err := db.readEntry(h, file, offset)
+		err := db.readEntry(file)
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
 		}
-
-		offset += esz
 	}
 
 	return nil
 }
 
-func (db *DB) readEntry(h header, file *os.File, offset int64) (int64, error) {
-	_, err := file.ReadAt(h, offset)
+func (db *DB) readEntry(file *os.File) error {
+	h, err := parseHeader(file)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	t, ksz, vsz, err := h.Parse()
+	key := make([]byte, h.Ksz)
+
+	_, err = file.Read(key)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	key := make([]byte, ksz)
+	db.keydir.Set(string(key), h, file.Name())
 
-	_, err = file.ReadAt(key, offset+12)
-	if err != nil {
-		return 0, err
-	}
+	_, err = file.Seek(int64(h.Vsz), 1)
 
-	esz := int64(12 + ksz + vsz)
-
-	db.keydir.Set(string(key), esz, vsz, t, file.Name())
-
-	return esz, nil
+	return err
 }
 
 func (db *DB) Close() error {
@@ -137,7 +126,7 @@ func (db *DB) Put(key string, value []byte) error {
 
 	var buff bytes.Buffer
 
-	_, err := buff.Write(h)
+	_, err := buff.Write(h.Encode())
 	if err != nil {
 		return err
 	}
@@ -156,7 +145,7 @@ func (db *DB) Put(key string, value []byte) error {
 
 	_, err = db.dataFile.Write(entry)
 
-	db.keydir.Set(key, int64(len(entry)), vSize, t, db.currDataFile)
+	db.keydir.Set(key, h, db.currDataFile)
 
 	return err
 }
