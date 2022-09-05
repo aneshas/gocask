@@ -1,4 +1,4 @@
-package gocask
+package cask
 
 import (
 	"bytes"
@@ -33,7 +33,7 @@ func (h header) EntrySize() uint32 {
 	return 12 + h.KeySize + h.ValueSize
 }
 
-func parseHeader(file store) (header, error) {
+func parseHeader(file File) (header, error) {
 	h := header{}
 
 	hb := make([]byte, 12)

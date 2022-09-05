@@ -7,7 +7,7 @@ import (
 	"github.com/aneshas/gocask"
 )
 
-// func TestXxx(t *testing.T) {
+// func TestXxx(t *testing.Timestamp) {
 // 	db, err := gocask.Open("store")
 // 	if err != nil {
 // 		t.Fatal(err)

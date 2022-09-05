@@ -1,4 +1,4 @@
-package gocask
+package cask
 
 import (
 	"fmt"
