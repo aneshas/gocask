@@ -61,6 +61,8 @@ func TestShould_Successfully_Store_Values(t *testing.T) {
 	}
 }
 
+// TODO Error values should live in the root
+
 // TODO Errors cases
 // file open errors
 // path errors (probably propagations)
