@@ -1,15 +1,13 @@
 package cask_test
 
 import (
-	"encoding/binary"
 	"fmt"
 	"github.com/aneshas/gocask/internal/cask"
 	"github.com/aneshas/gocask/internal/cask/testutil"
+	caskfs "github.com/aneshas/gocask/internal/fs"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
-
-var bo binary.ByteOrder = binary.LittleEndian
 
 func TestShould_Successfully_Store_Values(t *testing.T) {
 	cases := []struct {
@@ -39,10 +37,10 @@ func TestShould_Successfully_Store_Values(t *testing.T) {
 		},
 	}
 
+	fs := testutil.NewFS().WithWriteSupport()
+
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("put %s", tc.key), func(t *testing.T) {
-			fs := testutil.NewFS().WithWriteSupport()
-
 			db, err := cask.NewDB(fs.Path, fs, testutil.Time(tc.now))
 
 			assert.NoError(t, err)
@@ -54,7 +52,7 @@ func TestShould_Successfully_Store_Values(t *testing.T) {
 
 			assert.NoError(t, err)
 
-			fs.VerifyEntryWritten(t, entry(tc.now, key, val))
+			fs.VerifyEntryWritten(t, testutil.Entry(tc.now, key, val))
 
 			assert.NoError(t, db.Close())
 		})
@@ -67,109 +65,279 @@ func TestShould_Successfully_Store_Values(t *testing.T) {
 // file open errors
 // path errors (probably propagations)
 // non matching write (len, err)
-// Empty key
-// empty val
+// allow Empty val
+// key not found
+// empty key
+// nil val
+// nil key
 // same key behavior
+// all read, write, seek errors that return different number of bytes since this can lead to corrupt state
 
-// Test put and get together in sequence - this would test keydir updates ?
-
-func TestShould_Perform_Startup(t *testing.T) {
-
-}
-
-// TODO Test error cases
-
-//func TestShould_Successfully_Fetch_Existing_Values(t *testing.T) {
-//	cases := []struct {
-//		key  string
-//		want string
-//	}{
-//		{
-//			key:  "foo",
-//			want: "foo bar baz",
-//		},
-//		{
-//			key:  "name",
-//			want: "john doe",
-//		},
-//		{
-//			key:  "1234",
-//			want: `{"foo": "bar"}`,
-//		},
-//		{
-//			key:  "foo bar baz",
-//			want: "test",
-//		},
-//	}
-//
-//	for _, tc := range cases {
-//		t.Run(fmt.Sprintf("put %s", tc.key), func(t *testing.T) {
-//			path := "path/to/db"
-//
-//			var file mocks.File
-//
-//			//file.On("Name").Return("data")
-//			//file.On("Write", mock.Anything).Return(0, nil)
-//			file.On("Close").Return(nil)
-//
-//			key := []byte(tc.key)
-//			want := []byte(tc.want)
-//
-//			// TODO Extract this to an entry func
-//			wantEntry := appendBytes(
-//				u32ToB(1234),
-//				u32ToB(uint32(len(key))),
-//				u32ToB(uint32(len(want))),
-//				key,
-//				want,
-//			)
-//
-//			var fs mocks.FS
-//
-//			fs.On("Open", path).Return(&file, nil)
-//			fs.On("ReadFileAt", path, mock.Anything, mock.Anything, 0).Return(wantEntry, nil)
-//
-//			db, err := cask.NewDB(path, &fs, nil)
-//
-//			assert.NoError(t, err)
-//
-//			got, err := db.Get(key)
-//
-//			assert.NoError(t, err)
-//
-//			assert.Equal(t, want, got)
-//
-//			err = db.Close()
-//
-//			assert.NoError(t, err)
-//		})
-//	}
-//}
-
-func entry(now uint32, key, val []byte) []byte {
-	return appendBytes(
-		u32ToB(now),
-		u32ToB(uint32(len(key))),
-		u32ToB(uint32(len(val))),
-		key,
-		val,
-	)
-}
-
-func u32ToB(i uint32) []byte {
-	b := make([]byte, 4)
-
-	bo.PutUint32(b, i)
-
-	return b
-}
-
-func appendBytes(chunks ...[]byte) []byte {
-	var b []byte
-
-	for _, c := range chunks {
-		b = append(b, c...)
+func TestShould_Fetch_Previously_Saved_Value(t *testing.T) {
+	cases := []struct {
+		key string
+		val string
+		now uint32
+	}{
+		{
+			key: "foo",
+			val: "foo bar baz",
+			now: 1234,
+		},
+		{
+			key: "name",
+			val: "john doe",
+			now: 443,
+		},
+		{
+			key: "1234",
+			val: `{"foo": "bar"}`,
+			now: 34389,
+		},
+		{
+			key: "foo bar baz",
+			val: "test",
+			now: 999999,
+		},
 	}
 
-	return b
+	fs := caskfs.NewInMemory()
+
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("get/put %s", tc.key), func(t *testing.T) {
+			key := []byte(tc.key)
+			val := []byte(tc.val)
+
+			db, err := cask.NewDB("path/to/db", fs, testutil.Time(tc.now))
+
+			assert.NoError(t, err)
+
+			err = db.Put(key, val)
+
+			assert.NoError(t, err)
+
+			got, err := db.Get(key)
+
+			assert.NoError(t, err)
+			assert.Equal(t, val, got)
+		})
+	}
+}
+
+func TestShould_Fetch_Existing_Values_After_Startup(t *testing.T) {
+	seed := []struct {
+		file string
+		key  string
+		val  string
+		now  uint32
+	}{
+		{
+			file: "data",
+			key:  "foo",
+			val:  "foo bar baz",
+			now:  1234,
+		},
+		{
+			file: "data",
+			key:  "name",
+			val:  "john doe",
+			now:  443,
+		},
+		{
+			file: "data01",
+			key:  "foo1",
+			val:  "foo bar baz",
+			now:  1234,
+		},
+		{
+			file: "data01",
+			key:  "name1",
+			val:  "john doe",
+			now:  443,
+		},
+		{
+			file: "data02",
+			key:  "1234",
+			val:  `{"foo": "bar"}`,
+			now:  34389,
+		},
+		{
+			file: "data03",
+			key:  "foo bar baz",
+			val:  "test",
+			now:  999999,
+		},
+		{
+			file: "data03",
+			key:  "foo bar baz 01",
+			val:  "test",
+			now:  999999,
+		},
+		{
+			file: "data03",
+			key:  "foo2",
+			val:  "test foo bar",
+			now:  200,
+		},
+		{
+			file: "data03",
+			key:  "foo bar baz 02",
+			val:  "test",
+			now:  999999,
+		},
+		{
+			file: "data03",
+			key:  "baz",
+			val:  "test",
+			now:  999999,
+		},
+	}
+
+	cases := []struct {
+		key string
+		val string
+	}{
+		{
+			key: "foo",
+			val: "foo bar baz",
+		},
+		{
+			key: "name",
+			val: "john doe",
+		},
+		{
+			key: "foo1",
+			val: "foo bar baz",
+		},
+		{
+			key: "name1",
+			val: "john doe",
+		},
+		{
+			key: "1234",
+			val: `{"foo": "bar"}`,
+		},
+		{
+			key: "foo bar baz",
+			val: "test",
+		},
+		{
+			key: "foo bar baz 01",
+			val: "test",
+		},
+		{
+			key: "foo2",
+			val: "test foo bar",
+		},
+		{
+			key: "foo bar baz 02",
+			val: "test",
+		},
+		{
+			key: "baz",
+			val: "test",
+		},
+	}
+
+	fs := testutil.NewFS().WithMockDataFiles()
+
+	for _, tc := range seed {
+		fs.AddDataFileEntry(
+			tc.file,
+			testutil.Entry(tc.now, []byte(tc.key), []byte(tc.val)),
+		)
+	}
+
+	var time testutil.Time
+
+	db, err := cask.NewDB(fs.Path, fs, time)
+
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("get %s", tc.key), func(t *testing.T) {
+			key := []byte(tc.key)
+			val := []byte(tc.val)
+
+			assert.NoError(t, err)
+
+			got, err := db.Get(key)
+
+			assert.NoError(t, err)
+			assert.Equal(t, val, got)
+		})
+	}
+}
+
+func TestShould_Fetch_Updated_Values_From_Different_Files(t *testing.T) {
+	seed := []struct {
+		file string
+		key  string
+		val  string
+		now  uint32
+	}{
+		{
+			file: "data",
+			key:  "foo",
+			val:  "foo bar baz",
+			now:  1234,
+		},
+		{
+			file: "data",
+			key:  "bar",
+			val:  "foo bar baz",
+			now:  1234,
+		},
+		{
+			file: "data01",
+			key:  "foo",
+			val:  "john doe overwrites you",
+			now:  443,
+		},
+		{
+			file: "data02",
+			key:  "bar",
+			val:  "foo bar buzzed",
+			now:  1234,
+		},
+	}
+
+	cases := []struct {
+		key string
+		val string
+	}{
+		{
+			key: "foo",
+			val: "john doe overwrites you",
+		},
+		{
+			key: "bar",
+			val: "foo bar buzzed",
+		},
+	}
+
+	fs := testutil.NewFS().WithMockDataFiles()
+
+	for _, tc := range seed {
+		fs.AddDataFileEntry(
+			tc.file,
+			testutil.Entry(tc.now, []byte(tc.key), []byte(tc.val)),
+		)
+	}
+
+	var time testutil.Time
+
+	db, err := cask.NewDB(fs.Path, fs, time)
+
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("get %s", tc.key), func(t *testing.T) {
+			key := []byte(tc.key)
+			val := []byte(tc.val)
+
+			assert.NoError(t, err)
+
+			got, err := db.Get(key)
+
+			assert.NoError(t, err)
+			assert.Equal(t, val, got)
+		})
+	}
 }

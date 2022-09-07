@@ -2,13 +2,13 @@ package cask
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 )
 
-// TODO - max file should be configurable (configure other stuff also)
-// TODO - write in pages ? (this would be handled in File abstraction)
-// TODO - NewTestDB()
+// TODO - max file should be configurable (configure other stuff also per dependency and merge to one config in root)
+// TODO - NewTestDB() (or in memory) - but on root level
+
+// TODO - Implement basic unoptimised but full functionaly version, then iterate and add other stuff to README roadmap
 
 // FS represents a file system interface
 type FS interface {
@@ -35,7 +35,7 @@ type Time interface {
 	NowUnix() uint32
 }
 
-// DB represents caskdb implementation
+// DB represents bitcask db implementation
 type DB struct {
 	time Time
 	fs   FS
@@ -44,7 +44,7 @@ type DB struct {
 	kd   *keyDir
 }
 
-// NewDB instantiates new caskdb with provided FS as storage mechanism
+// NewDB instantiates new db with provided FS as storage mechanism
 func NewDB(dbpath string, fs FS, time Time) (*DB, error) {
 	f, err := fs.Open(dbpath)
 	if err != nil {
@@ -59,13 +59,19 @@ func NewDB(dbpath string, fs FS, time Time) (*DB, error) {
 		kd:   newKeyDir(),
 	}
 
-	return &caskDB, nil
-	//return caskDB, caskDB.init()
+	return &caskDB, caskDB.init()
 }
 
 func (db *DB) init() error {
 	return db.fs.Walk(db.path, func(file File) error {
-		return db.walkFile(file)
+		err := db.walkFile(file)
+		if err != nil {
+			return err
+		}
+
+		db.kd.ResetOffset()
+
+		return nil
 	})
 }
 
@@ -78,8 +84,6 @@ func (db *DB) walkFile(file File) error {
 			}
 		}
 	}
-
-	fmt.Printf("%#v", db.kd)
 
 	return nil
 }
@@ -108,6 +112,7 @@ func (db *DB) Close() error {
 	return db.file.Close()
 }
 
+// Put stores the value under given key
 func (db *DB) Put(key, value []byte) error {
 	kSize := uint32(len(key))
 	vSize := uint32(len(value))
@@ -145,9 +150,11 @@ func serializeEntry(h header, key, val []byte) ([]byte, error) {
 	return buff.Bytes(), err
 }
 
-// TODO - This db should work with []byte for both key and val but the top one can provide more options for datatypes
+// TODO - This db should work with []byte for both key and val but the top one can provide more options for data types
 // eg. generic or otherwise
+// also offer different serializers on top level (eg. json and roll your own)
 
+// Get retrieves a value stored under given key
 func (db *DB) Get(key []byte) ([]byte, error) {
 	ke, err := db.kd.Get(string(key))
 	if err != nil {
@@ -156,6 +163,7 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 
 	val := make([]byte, ke.ValueSize)
 
+	// TODO - Test n
 	_, err = db.fs.ReadFileAt(db.path, ke.File, val, int64(ke.ValuePos))
 	if err != nil {
 		return nil, err

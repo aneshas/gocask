@@ -12,16 +12,16 @@ type kdEntry struct {
 	File      string
 }
 
-func newKeyDir() *keyDir {
-	return &keyDir{
-		entries: map[string]kdEntry{},
-	}
-}
-
 type keyDir struct {
 	lastOffset uint32
 	m          sync.RWMutex
 	entries    map[string]kdEntry
+}
+
+func newKeyDir() *keyDir {
+	return &keyDir{
+		entries: map[string]kdEntry{},
+	}
 }
 
 func (kd *keyDir) Set(key string, h header, file string) {
@@ -50,4 +50,8 @@ func (kd *keyDir) Get(key string) (kdEntry, error) {
 	}
 
 	return ke, nil
+}
+
+func (kd *keyDir) ResetOffset() {
+	kd.lastOffset = 0
 }

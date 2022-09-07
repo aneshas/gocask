@@ -7,16 +7,16 @@ import (
 
 var byteOrder binary.ByteOrder = binary.LittleEndian
 
+type header struct {
+	Timestamp, KeySize, ValueSize uint32
+}
+
 func newHeader(t, ksz, vsz uint32) header {
 	return header{
 		Timestamp: t,
 		KeySize:   ksz,
 		ValueSize: vsz,
 	}
-}
-
-type header struct {
-	Timestamp, KeySize, ValueSize uint32
 }
 
 func (h header) Encode() []byte {
