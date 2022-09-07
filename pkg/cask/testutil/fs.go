@@ -2,8 +2,8 @@ package testutil
 
 import (
 	"bytes"
-	"github.com/aneshas/gocask/internal/cask"
-	"github.com/aneshas/gocask/internal/cask/testutil/mocks"
+	"github.com/aneshas/gocask/pkg/cask"
+	mocks2 "github.com/aneshas/gocask/pkg/cask/testutil/mocks"
 	"github.com/stretchr/testify/mock"
 	"io"
 	"testing"
@@ -13,12 +13,12 @@ const headerSize = 12
 
 // FS is a mock FS
 type FS struct {
-	*mocks.FS
+	*mocks2.FS
 
 	mockFiles      map[string][]byte
 	mockFilesOrder []string
 
-	file     *mocks.File
+	file     *mocks2.File
 	Path     string
 	DataFile string
 }
@@ -26,7 +26,7 @@ type FS struct {
 // NewFS creates new mock FS
 func NewFS() *FS {
 	return &FS{
-		FS:        &mocks.FS{},
+		FS:        &mocks2.FS{},
 		Path:      "path/to/db",
 		DataFile:  "data",
 		mockFiles: make(map[string][]byte),
@@ -35,7 +35,7 @@ func NewFS() *FS {
 
 // WithWriteSupport setup
 func (fs *FS) WithWriteSupport() *FS {
-	var file mocks.File
+	var file mocks2.File
 
 	file.On("Name").Return(fs.DataFile)
 	file.On("Write", mock.Anything).Return(0, nil)
@@ -49,8 +49,8 @@ func (fs *FS) WithWriteSupport() *FS {
 	return fs
 }
 
-// AddDataFileEntry adds entry to a mock data file
-func (fs *FS) AddDataFileEntry(fName string, entry []byte) {
+// AddMockDataFileEntry adds entry to a mock data file
+func (fs *FS) AddMockDataFileEntry(fName string, entry []byte) {
 	found := false
 
 	for _, f := range fs.mockFilesOrder {
@@ -70,8 +70,8 @@ func (fs *FS) AddDataFileEntry(fName string, entry []byte) {
 	)
 }
 
-// WithMockDataFiles sets up mock in memory data files
-func (fs *FS) WithMockDataFiles() *FS {
+// UseMockDataFiles uses mocked in memory files (set by AddMockDataFileEntry)
+func (fs *FS) UseMockDataFiles() *FS {
 	fs.On("Walk", fs.Path, mock.Anything).
 		Run(func(args mock.Arguments) {
 			f := args[1].(func(cask.File) error)
@@ -85,7 +85,7 @@ func (fs *FS) WithMockDataFiles() *FS {
 		}).
 		Return(nil)
 
-	var file mocks.File
+	var file mocks2.File
 
 	file.On("Name").Return(fs.DataFile)
 	file.On("Write", mock.Anything).Return(0, nil)

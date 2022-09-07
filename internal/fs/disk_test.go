@@ -2,8 +2,8 @@ package fs_test
 
 import (
 	"fmt"
-	"github.com/aneshas/gocask/internal/cask"
 	"github.com/aneshas/gocask/internal/fs"
+	"github.com/aneshas/gocask/pkg/cask"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path"

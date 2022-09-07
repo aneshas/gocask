@@ -3,7 +3,7 @@ package fs
 import (
 	"errors"
 	"fmt"
-	"github.com/aneshas/gocask/internal/cask"
+	"github.com/aneshas/gocask/pkg/cask"
 	gofs "io/fs"
 	"os"
 	gopath "path"

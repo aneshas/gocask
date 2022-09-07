@@ -2,9 +2,9 @@ package cask_test
 
 import (
 	"fmt"
-	"github.com/aneshas/gocask/internal/cask"
-	"github.com/aneshas/gocask/internal/cask/testutil"
 	caskfs "github.com/aneshas/gocask/internal/fs"
+	"github.com/aneshas/gocask/pkg/cask"
+	testutil2 "github.com/aneshas/gocask/pkg/cask/testutil"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -37,11 +37,11 @@ func TestShould_Successfully_Store_Values(t *testing.T) {
 		},
 	}
 
-	fs := testutil.NewFS().WithWriteSupport()
+	fs := testutil2.NewFS().WithWriteSupport()
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("put %s", tc.key), func(t *testing.T) {
-			db, err := cask.NewDB(fs.Path, fs, testutil.Time(tc.now))
+			db, err := cask.NewDB(fs.Path, fs, testutil2.Time(tc.now))
 
 			assert.NoError(t, err)
 
@@ -52,26 +52,12 @@ func TestShould_Successfully_Store_Values(t *testing.T) {
 
 			assert.NoError(t, err)
 
-			fs.VerifyEntryWritten(t, testutil.Entry(tc.now, key, val))
+			fs.VerifyEntryWritten(t, testutil2.Entry(tc.now, key, val))
 
 			assert.NoError(t, db.Close())
 		})
 	}
 }
-
-// TODO Error values should live in the root
-
-// TODO Errors cases
-// file open errors
-// path errors (probably propagations)
-// non matching write (len, err)
-// allow Empty val
-// key not found
-// empty key
-// nil val
-// nil key
-// same key behavior
-// all read, write, seek errors that return different number of bytes since this can lead to corrupt state
 
 func TestShould_Fetch_Previously_Saved_Value(t *testing.T) {
 	cases := []struct {
@@ -108,7 +94,7 @@ func TestShould_Fetch_Previously_Saved_Value(t *testing.T) {
 			key := []byte(tc.key)
 			val := []byte(tc.val)
 
-			db, err := cask.NewDB("path/to/db", fs, testutil.Time(tc.now))
+			db, err := cask.NewDB("path/to/db", fs, testutil2.Time(tc.now))
 
 			assert.NoError(t, err)
 
@@ -120,6 +106,10 @@ func TestShould_Fetch_Previously_Saved_Value(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, val, got)
+
+			err = db.Close()
+
+			assert.NoError(t, err)
 		})
 	}
 }
@@ -239,16 +229,16 @@ func TestShould_Fetch_Existing_Values_After_Startup(t *testing.T) {
 		},
 	}
 
-	fs := testutil.NewFS().WithMockDataFiles()
+	fs := testutil2.NewFS().UseMockDataFiles()
 
 	for _, tc := range seed {
-		fs.AddDataFileEntry(
+		fs.AddMockDataFileEntry(
 			tc.file,
-			testutil.Entry(tc.now, []byte(tc.key), []byte(tc.val)),
+			testutil2.Entry(tc.now, []byte(tc.key), []byte(tc.val)),
 		)
 	}
 
-	var time testutil.Time
+	var time testutil2.Time
 
 	db, err := cask.NewDB(fs.Path, fs, time)
 
@@ -314,16 +304,16 @@ func TestShould_Fetch_Updated_Values_From_Different_Files(t *testing.T) {
 		},
 	}
 
-	fs := testutil.NewFS().WithMockDataFiles()
+	fs := testutil2.NewFS().UseMockDataFiles()
 
 	for _, tc := range seed {
-		fs.AddDataFileEntry(
+		fs.AddMockDataFileEntry(
 			tc.file,
-			testutil.Entry(tc.now, []byte(tc.key), []byte(tc.val)),
+			testutil2.Entry(tc.now, []byte(tc.key), []byte(tc.val)),
 		)
 	}
 
-	var time testutil.Time
+	var time testutil2.Time
 
 	db, err := cask.NewDB(fs.Path, fs, time)
 
@@ -341,3 +331,21 @@ func TestShould_Fetch_Updated_Values_From_Different_Files(t *testing.T) {
 		})
 	}
 }
+
+// TODO Errors cases
+
+// file open errors
+// path errors (probably propagations)
+// non-matching write (len, err)
+// allow Empty val
+// key not found (type it)
+// empty key
+// nil val
+// nil key
+// same key behavior
+// all read, write, seek errors that return different number of bytes since this can lead to corrupt state
+
+// TODO
+// List all keys
+// Delete
+// Then follow up with other stuff

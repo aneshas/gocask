@@ -1,8 +1,8 @@
 package gocask
 
 import (
-	"github.com/aneshas/gocask/internal/cask"
 	"github.com/aneshas/gocask/internal/fs"
+	"github.com/aneshas/gocask/pkg/cask"
 	"time"
 )
 
@@ -14,8 +14,19 @@ type DB struct {
 // TODO Magic dbPath string	to open in memory db
 
 // Open opens an existing database at dbPath or creates a new one.
+// Magic in:mem:db value for dbPath can be used in order to instantiate an in memory file system.
 func Open(dbPath string) (*DB, error) {
-	db, err := cask.NewDB(dbPath, fs.NewDisk(), goTime{})
+	var caskFS cask.FS
+
+	caskFS = fs.NewDisk()
+
+	if dbPath == cask.InMemoryDB {
+		caskFS = fs.NewInMemory()
+	}
+
+	var t goTime
+
+	db, err := cask.NewDB(dbPath, caskFS, t)
 	if err != nil {
 		return nil, err
 	}

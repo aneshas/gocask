@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	cask "github.com/aneshas/gocask/internal/cask"
+	"github.com/aneshas/gocask/pkg/cask"
 	mock "github.com/stretchr/testify/mock"
 )
 
