@@ -1,7 +1,6 @@
 package cask
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -29,13 +28,13 @@ func (kd *keyDir) Set(key string, h header, file string) {
 	defer kd.m.Unlock()
 
 	entry := kdEntry{
-		ValuePos:  kd.lastOffset + h.EntrySize() - h.ValueSize,
+		ValuePos:  kd.lastOffset + h.entrySize() - h.ValueSize,
 		ValueSize: h.ValueSize,
 		Timestamp: h.Timestamp,
 		File:      file,
 	}
 
-	kd.lastOffset = kd.lastOffset + h.EntrySize()
+	kd.lastOffset = kd.lastOffset + h.entrySize()
 
 	kd.entries[key] = entry
 }
@@ -46,7 +45,7 @@ func (kd *keyDir) Get(key string) (kdEntry, error) {
 
 	ke, ok := kd.entries[key]
 	if !ok {
-		return kdEntry{}, fmt.Errorf("no value found for key: %s", key)
+		return kdEntry{}, ErrKeyNotFound
 	}
 
 	return ke, nil

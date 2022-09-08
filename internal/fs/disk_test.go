@@ -1,6 +1,7 @@
 package fs_test
 
 import (
+	"errors"
 	"fmt"
 	"github.com/aneshas/gocask/internal/fs"
 	"github.com/aneshas/gocask/pkg/cask"
@@ -60,18 +61,61 @@ func TestDiskFS_Should_Walk_Cask_Data_Files(t *testing.T) {
 	assert.Equal(t, wantFiles, files)
 }
 
-// TODO - Test Order when we know it
+func TestDiskFS_Walk_Reports_WalkFn_Error(t *testing.T) {
+	wantErr := errors.New("an error")
+	disk := fs.NewDisk()
 
-func TestDiskFS_Should_Read_File_Value_At_Zero_Offset(t *testing.T) {
-	// TODO Table test
+	err := disk.Walk("testdata/largedb", func(file cask.File) error {
+		return wantErr
+	})
 
+	assert.ErrorIs(t, err, wantErr)
+}
+
+func TestDiskFS_Should_Read_File_Value_At_Offset(t *testing.T) {
+	cases := []struct {
+		val    string
+		offset int64
+	}{
+		{
+			val:    "somevalue0",
+			offset: 0,
+		},
+		{
+			val:    "anothervalue",
+			offset: 10,
+		},
+		{
+			val:    "somethingelse",
+			offset: 22,
+		},
+	}
+
+	disk := fs.NewDisk()
+
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("read %s", tc.val), func(t *testing.T) {
+			count := len(tc.val)
+			data := make([]byte, count)
+
+			n, err := disk.ReadFileAt("testdata/readdb", "data-0002", data, tc.offset)
+
+			assert.NoError(t, err)
+			assert.Equal(t, count, n)
+			assert.Equal(t, []byte(tc.val), data)
+		})
+	}
+}
+
+func TestDiskFS_Should_Report_Out_Of_Bounds_Read(t *testing.T) {
 	disk := fs.NewDisk()
 
 	count := 10
 	data := make([]byte, count)
 
-	n, err := disk.ReadFileAt("testdata/readdb", "data-0001", data, 0)
+	_, err := disk.ReadFileAt("testdata/readdb", "data-0001", data, 100)
 
-	assert.NoError(t, err)
-	assert.Equal(t, count, n)
+	assert.Error(t, err)
 }
+
+// TODO - Test Order when we know it

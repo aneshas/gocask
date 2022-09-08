@@ -19,7 +19,7 @@ func newHeader(t, ksz, vsz uint32) header {
 	}
 }
 
-func (h header) Encode() []byte {
+func (h header) encode() []byte {
 	b := make([]byte, 12)
 
 	byteOrder.PutUint32(b[0:4], h.Timestamp)
@@ -29,7 +29,7 @@ func (h header) Encode() []byte {
 	return b
 }
 
-func (h header) EntrySize() uint32 {
+func (h header) entrySize() uint32 {
 	return 12 + h.KeySize + h.ValueSize
 }
 

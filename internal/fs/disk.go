@@ -33,18 +33,20 @@ func NewDisk() *Disk {
 // Disk represents disk based file system
 type Disk struct{}
 
-// Open opens a file for reading and creates it if it does not exist
+// Open opens a default data file for reading and creates it if it does not exist
 func (fs *Disk) Open(path string) (cask.File, error) {
-	currDataFile := "data.csk"
+	dataFile := "data.csk"
 
 	err := fs.createDir(path)
 	if err != nil {
 		return nil, err
 	}
 
-	dataFile := fmt.Sprintf("%s/%s", path, currDataFile)
-
-	file, err := os.OpenFile(dataFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+	file, err := os.OpenFile(
+		fmt.Sprintf("%s/%s", path, dataFile),
+		os.O_RDWR|os.O_CREATE|os.O_APPEND,
+		0755,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("could not open db: %w", err)
 	}
@@ -86,9 +88,9 @@ func (fs *Disk) Walk(path string, wf func(cask.File) error) error {
 
 		err = wf(&DiskFile{file})
 		if err != nil {
-			err = file.Close()
-			if err != nil {
-				return err
+			e := file.Close()
+			if e != nil {
+				return e
 			}
 
 			return err

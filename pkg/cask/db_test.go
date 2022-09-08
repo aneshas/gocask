@@ -1,10 +1,11 @@
 package cask_test
 
 import (
+	"errors"
 	"fmt"
 	caskfs "github.com/aneshas/gocask/internal/fs"
 	"github.com/aneshas/gocask/pkg/cask"
-	testutil2 "github.com/aneshas/gocask/pkg/cask/testutil"
+	"github.com/aneshas/gocask/pkg/cask/testutil"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -37,11 +38,11 @@ func TestShould_Successfully_Store_Values(t *testing.T) {
 		},
 	}
 
-	fs := testutil2.NewFS().WithWriteSupport()
+	fs := testutil.NewFS().WithWriteSupport()
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("put %s", tc.key), func(t *testing.T) {
-			db, err := cask.NewDB(fs.Path, fs, testutil2.Time(tc.now))
+			db, err := cask.NewDB(fs.Path, fs, testutil.Time(tc.now))
 
 			assert.NoError(t, err)
 
@@ -52,7 +53,7 @@ func TestShould_Successfully_Store_Values(t *testing.T) {
 
 			assert.NoError(t, err)
 
-			fs.VerifyEntryWritten(t, testutil2.Entry(tc.now, key, val))
+			fs.VerifyEntryWritten(t, testutil.Entry(tc.now, key, val))
 
 			assert.NoError(t, db.Close())
 		})
@@ -94,11 +95,9 @@ func TestShould_Fetch_Previously_Saved_Value(t *testing.T) {
 			key := []byte(tc.key)
 			val := []byte(tc.val)
 
-			db, err := cask.NewDB("path/to/db", fs, testutil2.Time(tc.now))
+			db, _ := cask.NewDB("path/to/db", fs, testutil.Time(tc.now))
 
-			assert.NoError(t, err)
-
-			err = db.Put(key, val)
+			err := db.Put(key, val)
 
 			assert.NoError(t, err)
 
@@ -229,25 +228,23 @@ func TestShould_Fetch_Existing_Values_After_Startup(t *testing.T) {
 		},
 	}
 
-	fs := testutil2.NewFS().UseMockDataFiles()
+	fs := testutil.NewFS().UseMockDataFiles()
 
 	for _, tc := range seed {
 		fs.AddMockDataFileEntry(
 			tc.file,
-			testutil2.Entry(tc.now, []byte(tc.key), []byte(tc.val)),
+			testutil.Entry(tc.now, []byte(tc.key), []byte(tc.val)),
 		)
 	}
 
-	var time testutil2.Time
+	var time testutil.Time
 
-	db, err := cask.NewDB(fs.Path, fs, time)
+	db, _ := cask.NewDB(fs.Path, fs, time)
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("get %s", tc.key), func(t *testing.T) {
 			key := []byte(tc.key)
 			val := []byte(tc.val)
-
-			assert.NoError(t, err)
 
 			got, err := db.Get(key)
 
@@ -304,25 +301,23 @@ func TestShould_Fetch_Updated_Values_From_Different_Files(t *testing.T) {
 		},
 	}
 
-	fs := testutil2.NewFS().UseMockDataFiles()
+	fs := testutil.NewFS().UseMockDataFiles()
 
 	for _, tc := range seed {
 		fs.AddMockDataFileEntry(
 			tc.file,
-			testutil2.Entry(tc.now, []byte(tc.key), []byte(tc.val)),
+			testutil.Entry(tc.now, []byte(tc.key), []byte(tc.val)),
 		)
 	}
 
-	var time testutil2.Time
+	var time testutil.Time
 
-	db, err := cask.NewDB(fs.Path, fs, time)
+	db, _ := cask.NewDB(fs.Path, fs, time)
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("get %s", tc.key), func(t *testing.T) {
 			key := []byte(tc.key)
 			val := []byte(tc.val)
-
-			assert.NoError(t, err)
 
 			got, err := db.Get(key)
 
@@ -332,18 +327,64 @@ func TestShould_Fetch_Updated_Values_From_Different_Files(t *testing.T) {
 	}
 }
 
+func TestPut_Should_Report_Failed_Write_Error(t *testing.T) {
+	wantErr := errors.New("an error")
+
+	fs := testutil.NewFS().WithFailWithErrOnWrite(wantErr)
+
+	var time testutil.Time
+
+	db, _ := cask.NewDB(fs.Path, fs, time)
+
+	err := db.Put([]byte("key"), []byte("val"))
+
+	assert.ErrorIs(t, err, err)
+}
+
+func TestPut_Should_Report_Typed_Key_Not_Found_Error(t *testing.T) {
+	fs := testutil.NewFS().WithWriteSupport()
+
+	var time testutil.Time
+
+	db, _ := cask.NewDB(fs.Path, fs, time)
+
+	_, err := db.Get([]byte("foo"))
+
+	assert.ErrorIs(t, err, cask.ErrKeyNotFound)
+}
+
+func TestPut_Should_Report_File_Read_Error_For_Existing_Key(t *testing.T) {
+	key := []byte("foo")
+	wantErr := errors.New("an error")
+
+	fs := testutil.NewFS().
+		WithFailOnReadValueFromFile(wantErr).
+		UseMockDataFiles()
+
+	fs.AddMockDataFileEntry(
+		"data",
+		testutil.Entry(123, key, []byte("value")),
+	)
+
+	var time testutil.Time
+
+	db, _ := cask.NewDB(fs.Path, fs, time)
+
+	_, err := db.Get(key)
+
+	assert.ErrorIs(t, err, wantErr)
+}
+
 // TODO Errors cases
 
+// Corrupt header error
+// CRC errors
 // file open errors
-// path errors (probably propagations)
-// non-matching write (len, err)
-// allow Empty val
-// key not found (type it)
-// empty key
+// allow Empty val Get
+// empty key put not allow
 // nil val
 // nil key
 // same key behavior
-// all read, write, seek errors that return different number of bytes since this can lead to corrupt state
 
 // TODO
 // List all keys

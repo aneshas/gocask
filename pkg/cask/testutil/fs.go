@@ -9,8 +9,6 @@ import (
 	"testing"
 )
 
-const headerSize = 12
-
 // FS is a mock FS
 type FS struct {
 	*mocks2.FS
@@ -39,6 +37,22 @@ func (fs *FS) WithWriteSupport() *FS {
 
 	file.On("Name").Return(fs.DataFile)
 	file.On("Write", mock.Anything).Return(0, nil)
+	file.On("Close").Return(nil)
+
+	fs.On("Open", fs.Path).Return(&file, nil)
+	fs.On("Walk", fs.Path, mock.Anything).Return(nil)
+
+	fs.file = &file
+
+	return fs
+}
+
+// WithFailWithErrOnWrite setup
+func (fs *FS) WithFailWithErrOnWrite(err error) *FS {
+	var file mocks2.File
+
+	file.On("Name").Return(fs.DataFile)
+	file.On("Write", mock.Anything).Return(0, err)
 	file.On("Close").Return(nil)
 
 	fs.On("Open", fs.Path).Return(&file, nil)
@@ -104,6 +118,12 @@ func (fs *FS) UseMockDataFiles() *FS {
 			}
 		}).
 		Return(0, nil)
+
+	return fs
+}
+
+func (fs *FS) WithFailOnReadValueFromFile(err error) *FS {
+	fs.On("ReadFileAt", fs.Path, mock.Anything, mock.Anything, mock.Anything).Return(0, err)
 
 	return fs
 }
