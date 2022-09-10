@@ -12,7 +12,7 @@ import (
 var (
 	// ErrKeyNotFound signifies that the requested key was not found in keydir
 	// This effectively means that the key does not exist in the database itself
-	ErrKeyNotFound = errors.New("caskdb: key not found")
+	ErrKeyNotFound = errors.New("gocask: key not found")
 )
 
 // InMemoryDB represents a magic value which can be used instead of db path
@@ -78,13 +78,15 @@ func (db *DB) init() error {
 			return err
 		}
 
-		db.kd.ResetOffset()
+		db.kd.resetOffset()
 
 		return nil
 	})
 }
 
 func (db *DB) walkFile(file File) error {
+	// TODO Use buf reading
+
 	for {
 		err := db.readEntry(file)
 		if err != nil {
@@ -103,14 +105,26 @@ func (db *DB) readEntry(file File) error {
 		return err
 	}
 
-	key := make([]byte, h.KeySize)
+	keySize := h.KeySize
+
+	if h.isTombstone() {
+		keySize = h.ValueSize
+	}
+
+	key := make([]byte, keySize)
 
 	_, err = file.Read(key)
 	if err != nil {
 		return err
 	}
 
-	db.kd.Set(string(key), h, file.Name())
+	if h.isTombstone() {
+		db.kd.unset(string(key))
+
+		return nil
+	}
+
+	db.kd.set(string(key), h, file.Name())
 
 	_, err = file.Seek(int64(h.ValueSize), 1)
 
@@ -122,32 +136,38 @@ func (db *DB) Close() error {
 }
 
 // Put stores the value under given key
-func (db *DB) Put(key, value []byte) error {
-	kSize := uint32(len(key))
-	vSize := uint32(len(value))
+func (db *DB) Put(key, val []byte) error {
+	h, err := db.writeKeyVal(key, val)
+	if err != nil {
+		return err
+	}
 
-	h := newHeader(db.time.NowUnix(), kSize, vSize)
+	db.kd.set(string(key), h, db.file.Name())
 
-	_, err := db.file.Write(serializeEntry(h, key, value))
-
-	db.kd.Set(string(key), h, db.file.Name())
-
-	return err
+	return nil
 }
 
-func serializeEntry(h header, key, val []byte) []byte {
-	var buff bytes.Buffer
+// Delete deletes a key/value pair if it exists or reports key not found
+// error if the key does not exist
+func (db *DB) Delete(key []byte) error {
+	_, err := db.Get(key)
+	if err != nil {
+		return err
+	}
 
-	buff.Write(h.encode())
-	buff.Write(key)
-	buff.Write(val)
+	_, err = db.writeKeyVal(nil, key)
+	if err != nil {
+		return err
+	}
 
-	return buff.Bytes()
+	db.kd.unset(string(key))
+
+	return nil
 }
 
 // Get retrieves a value stored under given key
 func (db *DB) Get(key []byte) ([]byte, error) {
-	ke, err := db.kd.Get(string(key))
+	ke, err := db.kd.get(string(key))
 	if err != nil {
 		return nil, err
 	}
@@ -160,4 +180,39 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 	}
 
 	return val, nil
+}
+
+func (db *DB) writeKeyVal(key, val []byte) (header, error) {
+	var kSize uint32
+
+	if key != nil {
+		kSize = uint32(len(key))
+	}
+
+	vSize := uint32(len(val))
+
+	h := newHeader(db.time.NowUnix(), kSize, vSize)
+
+	_, err := db.file.Write(serializeEntry(h, key, val))
+
+	return h, err
+}
+
+func serializeEntry(h header, key, val []byte) []byte {
+	var buff bytes.Buffer
+
+	buff.Write(h.encode())
+
+	if key != nil {
+		buff.Write(key)
+	}
+
+	buff.Write(val)
+
+	return buff.Bytes()
+}
+
+// Keys returns all keys
+func (db *DB) Keys() []string {
+	return db.kd.keys()
 }

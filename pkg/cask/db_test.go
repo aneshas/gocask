@@ -7,6 +7,7 @@ import (
 	"github.com/aneshas/gocask/pkg/cask"
 	"github.com/aneshas/gocask/pkg/cask/testutil"
 	"github.com/stretchr/testify/assert"
+	"sort"
 	"testing"
 )
 
@@ -327,6 +328,133 @@ func TestShould_Fetch_Updated_Values_From_Different_Files(t *testing.T) {
 	}
 }
 
+func TestShould_Not_Be_Able_To_Retrieve_Deleted_Key(t *testing.T) {
+	fs := caskfs.NewInMemory()
+
+	var time testutil.Time
+
+	db, _ := cask.NewDB("", fs, time)
+
+	key := []byte("foo")
+	val := []byte("bar")
+
+	_ = db.Put(key, val)
+
+	err := db.Delete(key)
+
+	assert.NoError(t, err)
+
+	_, err = db.Get(key)
+
+	assert.ErrorIs(t, err, cask.ErrKeyNotFound)
+}
+
+func TestShould_Not_Be_Able_To_Retrieve_Deleted_Key_After_Startup(t *testing.T) {
+	fs := caskfs.NewInMemory()
+
+	var time testutil.Time
+
+	db, _ := cask.NewDB("", fs, time)
+
+	key := []byte("foo")
+	val := []byte("bar")
+
+	_ = db.Put(key, val)
+	_ = db.Delete(key)
+
+	db, _ = cask.NewDB("", fs, time)
+
+	_, err := db.Get(key)
+
+	assert.ErrorIs(t, err, cask.ErrKeyNotFound)
+}
+
+func TestShould_Be_Able_To_Reset_Deleted_Key(t *testing.T) {
+	fs := caskfs.NewInMemory()
+
+	var time testutil.Time
+
+	db, _ := cask.NewDB("", fs, time)
+
+	key := []byte("foo")
+	val := []byte("bar")
+	newVal := []byte("baz")
+
+	_ = db.Put(key, val)
+	_ = db.Delete(key)
+	_ = db.Put(key, newVal)
+
+	got, err := db.Get(key)
+
+	assert.NoError(t, err)
+	assert.Equal(t, newVal, got)
+}
+
+func TestShould_Report_KeyNotFound_When_Deleting_Non_Existent_Key(t *testing.T) {
+	fs := caskfs.NewInMemory()
+
+	var time testutil.Time
+
+	db, _ := cask.NewDB("", fs, time)
+
+	err := db.Delete([]byte("i-dont-exist"))
+
+	assert.ErrorIs(t, err, cask.ErrKeyNotFound)
+}
+
+func TestShould_Fetch_All_Keys(t *testing.T) {
+	seed := []struct {
+		file string
+		key  string
+	}{
+		{
+			file: "data",
+			key:  "foo",
+		},
+		{
+			file: "data",
+			key:  "bar",
+		},
+		{
+			file: "data01",
+			key:  "foobar",
+		},
+		{
+			file: "data02",
+			key:  "baz",
+		},
+	}
+
+	fs := testutil.NewFS().UseMockDataFiles()
+
+	for _, tc := range seed {
+		fs.AddMockDataFileEntry(
+			tc.file,
+			testutil.Entry(123, []byte(tc.key), []byte("val")),
+		)
+	}
+
+	var time testutil.Time
+
+	db, _ := cask.NewDB(fs.Path, fs, time)
+
+	wantKeys := []string{"foo", "bar", "foobar", "baz"}
+	gotKeys := db.Keys()
+
+	sort.Strings(gotKeys)
+	sort.Strings(wantKeys)
+
+	assert.Equal(t, wantKeys, gotKeys)
+}
+
+func TestShould_Return_Empty_Keys_Slice_For_Empty_DB(t *testing.T) {
+	var time testutil.Time
+
+	db, _ := cask.NewDB("", caskfs.NewInMemory(), time)
+
+	assert.Equal(t, []string{}, db.Keys())
+}
+
 func TestPut_Should_Report_Failed_Write_Error(t *testing.T) {
 	wantErr := errors.New("an error")
 
@@ -380,7 +508,7 @@ func TestPut_Should_Report_File_Read_Error_For_Existing_Key(t *testing.T) {
 // Corrupt header error
 // CRC errors
 // file open errors
-// allow Empty val Get
+// allow Empty val get
 // empty key put not allow
 // nil val
 // nil key

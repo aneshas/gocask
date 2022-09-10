@@ -5,6 +5,7 @@ import (
 	"github.com/aneshas/gocask"
 	"log"
 	"os"
+	"strings"
 )
 
 // Cask would be usable as an embedded store (root) or as an executable (this)
@@ -18,7 +19,7 @@ func main() {
 
 	defer db.Close()
 
-	if len(os.Args) < 3 {
+	if len(os.Args) < 2 {
 		return
 	}
 
@@ -38,5 +39,9 @@ func main() {
 		}
 
 		fmt.Printf("%s: %s\n", os.Args[2], val)
+	}
+
+	if os.Args[1] == "keys" {
+		fmt.Println(strings.Join(db.Keys(), ", "))
 	}
 }

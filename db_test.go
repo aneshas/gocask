@@ -69,3 +69,11 @@ func writeReadAndAssert(t *testing.T, db *gocask.DB) {
 		assert.Equal(t, want, got)
 	}
 }
+
+func TestDisk_DB_Should_Fetch_All_Keys(t *testing.T) {
+	db, _ := gocask.Open("testdata/mydb")
+
+	defer db.Close()
+
+	assert.Equal(t, []string{"user123"}, db.Keys())
+}

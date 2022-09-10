@@ -16,7 +16,8 @@ type FS struct {
 	mockFiles      map[string][]byte
 	mockFilesOrder []string
 
-	file     *mocks2.File
+	file *mocks2.File
+
 	Path     string
 	DataFile string
 }
@@ -128,14 +129,15 @@ func (fs *FS) WithFailOnReadValueFromFile(err error) *FS {
 	return fs
 }
 
-// VerifyEntryWritten verifies that entry was written
+// VerifyEntryWritten verifies that entry was bytesWritten
 func (fs *FS) VerifyEntryWritten(t *testing.T, entry []byte) {
 	fs.file.AssertCalled(t, "Write", entry)
 }
 
 type echoFile struct {
-	name   string
-	buffer io.Reader
+	name         string
+	buffer       io.Reader
+	bytesWritten []byte
 }
 
 func (e *echoFile) Read(p []byte) (n int, err error) {
@@ -143,7 +145,9 @@ func (e *echoFile) Read(p []byte) (n int, err error) {
 }
 
 func (e *echoFile) Write(p []byte) (n int, err error) {
-	return 0, nil
+	e.bytesWritten = p
+
+	return len(p), nil
 }
 
 func (e *echoFile) Seek(offset int64, whence int) (int64, error) {

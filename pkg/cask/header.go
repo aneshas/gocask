@@ -5,7 +5,10 @@ import (
 	"encoding/binary"
 )
 
-var byteOrder binary.ByteOrder = binary.LittleEndian
+var (
+	byteOrder  binary.ByteOrder = binary.LittleEndian
+	headerSize uint32           = 12
+)
 
 type header struct {
 	Timestamp, KeySize, ValueSize uint32
@@ -20,7 +23,7 @@ func newHeader(t, ksz, vsz uint32) header {
 }
 
 func (h header) encode() []byte {
-	b := make([]byte, 12)
+	b := make([]byte, headerSize)
 
 	byteOrder.PutUint32(b[0:4], h.Timestamp)
 	byteOrder.PutUint32(b[4:8], h.KeySize)
@@ -30,13 +33,17 @@ func (h header) encode() []byte {
 }
 
 func (h header) entrySize() uint32 {
-	return 12 + h.KeySize + h.ValueSize
+	return headerSize + h.KeySize + h.ValueSize
+}
+
+func (h header) isTombstone() bool {
+	return h.KeySize == 0
 }
 
 func parseHeader(file File) (header, error) {
 	h := header{}
 
-	hb := make([]byte, 12)
+	hb := make([]byte, headerSize)
 
 	_, err := file.Read(hb)
 	if err != nil {

@@ -23,7 +23,7 @@ func newKeyDir() *keyDir {
 	}
 }
 
-func (kd *keyDir) Set(key string, h header, file string) {
+func (kd *keyDir) set(key string, h header, file string) {
 	kd.m.Lock()
 	defer kd.m.Unlock()
 
@@ -39,7 +39,7 @@ func (kd *keyDir) Set(key string, h header, file string) {
 	kd.entries[key] = entry
 }
 
-func (kd *keyDir) Get(key string) (kdEntry, error) {
+func (kd *keyDir) get(key string) (kdEntry, error) {
 	kd.m.RLock()
 	defer kd.m.RUnlock()
 
@@ -51,6 +51,28 @@ func (kd *keyDir) Get(key string) (kdEntry, error) {
 	return ke, nil
 }
 
-func (kd *keyDir) ResetOffset() {
+func (kd *keyDir) unset(key string) {
+	kd.m.Lock()
+	defer kd.m.Unlock()
+
+	delete(kd.entries, key)
+
+	kd.lastOffset = kd.lastOffset + headerSize + uint32(len(key))
+}
+
+func (kd *keyDir) resetOffset() {
 	kd.lastOffset = 0
+}
+
+func (kd *keyDir) keys() []string {
+	kd.m.RLock()
+	defer kd.m.RUnlock()
+
+	keys := []string{}
+
+	for key := range kd.entries {
+		keys = append(keys, key)
+	}
+
+	return keys
 }
