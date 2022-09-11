@@ -1,8 +1,8 @@
 package cask
 
 import (
-	"bytes"
 	"encoding/binary"
+	"io"
 )
 
 var (
@@ -40,32 +40,8 @@ func (h header) isTombstone() bool {
 	return h.KeySize == 0
 }
 
-func parseHeader(file File) (header, error) {
+func parseHeader(r io.Reader) (header, error) {
 	h := header{}
 
-	hb := make([]byte, headerSize)
-
-	_, err := file.Read(hb)
-	if err != nil {
-		return h, err
-	}
-
-	r := bytes.NewReader(hb)
-
-	err = binary.Read(r, byteOrder, &h.Timestamp)
-	if err != nil {
-		return h, err
-	}
-
-	err = binary.Read(r, byteOrder, &h.KeySize)
-	if err != nil {
-		return h, err
-	}
-
-	err = binary.Read(r, byteOrder, &h.ValueSize)
-	if err != nil {
-		return h, err
-	}
-
-	return h, nil
+	return h, binary.Read(r, byteOrder, &h)
 }

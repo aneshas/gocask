@@ -5,14 +5,13 @@ import (
 	"github.com/aneshas/gocask"
 	"log"
 	"os"
-	"strings"
 )
 
 // Cask would be usable as an embedded store (root) or as an executable (this)
 // Executable would provide grpc api
 
 func main() {
-	db, err := gocask.Open("mydb")
+	db, err := gocask.Open("/Users/anes.hasicic/bigdata")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -42,6 +41,8 @@ func main() {
 	}
 
 	if os.Args[1] == "keys" {
-		fmt.Println(strings.Join(db.Keys(), ", "))
+		for _, k := range db.Keys() {
+			fmt.Println(k)
+		}
 	}
 }

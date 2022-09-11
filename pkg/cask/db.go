@@ -1,13 +1,13 @@
 package cask
 
 import (
-	"bytes"
+	"bufio"
 	"errors"
+	"fmt"
 	"io"
 )
 
 // TODO - max file should be configurable (configure other stuff also per dependency and merge to one config in root)
-// TODO - Add namespaces
 
 var (
 	// ErrKeyNotFound signifies that the requested key was not found in keydir
@@ -85,22 +85,26 @@ func (db *DB) init() error {
 }
 
 func (db *DB) walkFile(file File) error {
-	// TODO Use buf reading
+	r := bufio.NewReader(file)
+	name := file.Name()
 
 	for {
-		err := db.readEntry(file)
+		err := db.readEntry(r, name)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
+
+			// TODO - Test for ErrUnexpectedEOF and unknown err
+			return fmt.Errorf("gocask: startup error: %w", err)
 		}
 	}
 
 	return nil
 }
 
-func (db *DB) readEntry(file File) error {
-	h, err := parseHeader(file)
+func (db *DB) readEntry(r *bufio.Reader, file string) error {
+	h, err := parseHeader(r)
 	if err != nil {
 		return err
 	}
@@ -113,7 +117,7 @@ func (db *DB) readEntry(file File) error {
 
 	key := make([]byte, keySize)
 
-	_, err = file.Read(key)
+	_, err = io.ReadFull(r, key)
 	if err != nil {
 		return err
 	}
@@ -124,9 +128,13 @@ func (db *DB) readEntry(file File) error {
 		return nil
 	}
 
-	db.kd.set(string(key), h, file.Name())
+	// TODO - Test
+	_, err = r.Discard(int(h.ValueSize))
+	if err != nil {
+		return err
+	}
 
-	_, err = file.Seek(int64(h.ValueSize), 1)
+	db.kd.set(string(key), h, file)
 
 	return err
 }
@@ -199,17 +207,17 @@ func (db *DB) writeKeyVal(key, val []byte) (header, error) {
 }
 
 func serializeEntry(h header, key, val []byte) []byte {
-	var buff bytes.Buffer
+	b := make([]byte, 0, int(headerSize)+len(key)+len(val))
 
-	buff.Write(h.encode())
+	b = append(b, h.encode()...)
 
 	if key != nil {
-		buff.Write(key)
+		b = append(b, key...)
 	}
 
-	buff.Write(val)
+	b = append(b, val...)
 
-	return buff.Bytes()
+	return b
 }
 
 // Keys returns all keys
