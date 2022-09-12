@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 )
 
 // TODO - max file should be configurable (configure other stuff also per dependency and merge to one config in root)
@@ -13,6 +14,10 @@ var (
 	// ErrKeyNotFound signifies that the requested key was not found in keydir
 	// This effectively means that the key does not exist in the database itself
 	ErrKeyNotFound = errors.New("gocask: key not found")
+
+	// ErrPartialWrite signifies that the underlying disk write was not complete, which means
+	// that write was successful but the entry is corrupted and should be retried
+	ErrPartialWrite = errors.New("gocask: key/value pair not fully written")
 )
 
 // InMemoryDB represents a magic value which can be used instead of db path
@@ -21,20 +26,22 @@ const InMemoryDB = "in:mem:db"
 
 // FS represents a file system interface
 type FS interface {
-	// Open should open the active data file for a given db path
+	// Open should open the active data file for the given db path
 	Open(string) (File, error)
 
-	// Walk should walk through all data files for a given db path
+	// Rotate should generate and open new data file for the given db path
+	Rotate(string) (File, error)
+
+	// Walk should walk through all data files for the given db path
 	Walk(string, func(File) error) error
 
-	// ReadFileAt should read a chunk of named path data file at a given offset
+	// ReadFileAt should read a chunk of named path data file at the given offset
 	ReadFileAt(string, string, []byte, int64) (int, error)
 }
 
 // File represents a single fs data file
 type File interface {
-	io.ReadWriteSeeker
-	io.Closer
+	io.ReadWriteCloser
 
 	Name() string
 }
@@ -51,6 +58,7 @@ type DB struct {
 	file File
 	path string
 	kd   *keyDir
+	m    sync.RWMutex
 }
 
 // NewDB instantiates new db with provided FS as storage mechanism
@@ -68,25 +76,29 @@ func NewDB(dbpath string, fs FS, time Time) (*DB, error) {
 		kd:   newKeyDir(),
 	}
 
-	return &caskDB, caskDB.init()
+	return &caskDB, caskDB.init(f)
 }
 
-func (db *DB) init() error {
+func (db *DB) init(activeFile File) error {
 	return db.fs.Walk(db.path, func(file File) error {
 		err := db.walkFile(file)
 		if err != nil {
 			return err
 		}
 
-		db.kd.resetOffset()
+		if file.Name() != activeFile.Name() {
+			db.kd.resetOffset()
+		}
 
 		return nil
 	})
 }
 
 func (db *DB) walkFile(file File) error {
-	r := bufio.NewReader(file)
-	name := file.Name()
+	var (
+		r    = bufio.NewReader(file)
+		name = file.Name()
+	)
 
 	for {
 		err := db.readEntry(r, name)
@@ -145,6 +157,9 @@ func (db *DB) Close() error {
 
 // Put stores the value under given key
 func (db *DB) Put(key, val []byte) error {
+	db.m.Lock()
+	defer db.m.Unlock()
+
 	h, err := db.writeKeyVal(key, val)
 	if err != nil {
 		return err
@@ -163,6 +178,9 @@ func (db *DB) Delete(key []byte) error {
 		return err
 	}
 
+	db.m.Lock()
+	defer db.m.Unlock()
+
 	_, err = db.writeKeyVal(nil, key)
 	if err != nil {
 		return err
@@ -175,6 +193,9 @@ func (db *DB) Delete(key []byte) error {
 
 // Get retrieves a value stored under given key
 func (db *DB) Get(key []byte) ([]byte, error) {
+	db.m.RLock()
+	defer db.m.RUnlock()
+
 	ke, err := db.kd.get(string(key))
 	if err != nil {
 		return nil, err
@@ -201,7 +222,16 @@ func (db *DB) writeKeyVal(key, val []byte) (header, error) {
 
 	h := newHeader(db.time.NowUnix(), kSize, vSize)
 
-	_, err := db.file.Write(serializeEntry(h, key, val))
+	entry := serializeEntry(h, key, val)
+
+	n, err := db.file.Write(entry)
+	if err != nil {
+		if n > 0 {
+			db.kd.advanceOffsetBy(uint32(n))
+
+			return h, ErrPartialWrite
+		}
+	}
 
 	return h, err
 }
@@ -222,5 +252,8 @@ func serializeEntry(h header, key, val []byte) []byte {
 
 // Keys returns all keys
 func (db *DB) Keys() []string {
+	db.m.RLock()
+	defer db.m.RUnlock()
+
 	return db.kd.keys()
 }

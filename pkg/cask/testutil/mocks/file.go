@@ -58,27 +58,6 @@ func (_m *File) Read(p []byte) (int, error) {
 	return r0, r1
 }
 
-// Seek provides a mock function with given fields: offset, whence
-func (_m *File) Seek(offset int64, whence int) (int64, error) {
-	ret := _m.Called(offset, whence)
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func(int64, int) int64); ok {
-		r0 = rf(offset, whence)
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(int64, int) error); ok {
-		r1 = rf(offset, whence)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // Write provides a mock function with given fields: p
 func (_m *File) Write(p []byte) (int, error) {
 	ret := _m.Called(p)

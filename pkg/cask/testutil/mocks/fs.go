@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	"github.com/aneshas/gocask/pkg/cask"
+	cask "github.com/aneshas/gocask/pkg/cask"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -49,6 +49,29 @@ func (_m *FS) ReadFileAt(_a0 string, _a1 string, _a2 []byte, _a3 int64) (int, er
 	var r1 error
 	if rf, ok := ret.Get(1).(func(string, string, []byte, int64) error); ok {
 		r1 = rf(_a0, _a1, _a2, _a3)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Rotate provides a mock function with given fields: _a0
+func (_m *FS) Rotate(_a0 string) (cask.File, error) {
+	ret := _m.Called(_a0)
+
+	var r0 cask.File
+	if rf, ok := ret.Get(0).(func(string) cask.File); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(cask.File)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(_a0)
 	} else {
 		r1 = ret.Error(1)
 	}

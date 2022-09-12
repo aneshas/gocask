@@ -1,9 +1,5 @@
 package cask
 
-import (
-	"sync"
-)
-
 type kdEntry struct {
 	Timestamp uint32
 	ValuePos  uint32
@@ -13,7 +9,6 @@ type kdEntry struct {
 
 type keyDir struct {
 	lastOffset uint32
-	m          sync.RWMutex
 	entries    map[string]kdEntry
 }
 
@@ -24,9 +19,6 @@ func newKeyDir() *keyDir {
 }
 
 func (kd *keyDir) set(key string, h header, file string) {
-	kd.m.Lock()
-	defer kd.m.Unlock()
-
 	entry := kdEntry{
 		ValuePos:  kd.lastOffset + h.entrySize() - h.ValueSize,
 		ValueSize: h.ValueSize,
@@ -40,9 +32,6 @@ func (kd *keyDir) set(key string, h header, file string) {
 }
 
 func (kd *keyDir) get(key string) (kdEntry, error) {
-	kd.m.RLock()
-	defer kd.m.RUnlock()
-
 	ke, ok := kd.entries[key]
 	if !ok {
 		return kdEntry{}, ErrKeyNotFound
@@ -52,9 +41,6 @@ func (kd *keyDir) get(key string) (kdEntry, error) {
 }
 
 func (kd *keyDir) unset(key string) {
-	kd.m.Lock()
-	defer kd.m.Unlock()
-
 	delete(kd.entries, key)
 
 	kd.lastOffset = kd.lastOffset + headerSize + uint32(len(key))
@@ -64,10 +50,11 @@ func (kd *keyDir) resetOffset() {
 	kd.lastOffset = 0
 }
 
-func (kd *keyDir) keys() []string {
-	kd.m.RLock()
-	defer kd.m.RUnlock()
+func (kd *keyDir) advanceOffsetBy(n uint32) {
+	kd.lastOffset += n
+}
 
+func (kd *keyDir) keys() []string {
 	keys := []string{}
 
 	for key := range kd.entries {

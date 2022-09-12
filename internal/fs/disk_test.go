@@ -9,7 +9,6 @@ import (
 	"os"
 	"path"
 	"testing"
-	"time"
 )
 
 func TestDiskFS_Should_Report_Existing_DB_Named_File_As_An_Error(t *testing.T) {
@@ -24,24 +23,45 @@ func TestDiskFS_Should_Report_Existing_DB_Named_File_As_An_Error(t *testing.T) {
 func TestDiskFS_Should_Create_New_DB(t *testing.T) {
 	disk := fs.NewDisk()
 
-	dbName := fmt.Sprintf("gocask_db_%d", time.Now().Unix())
-	db := path.Join(os.TempDir(), dbName)
+	db, err := os.MkdirTemp("", "newdb")
+
+	assert.NoError(t, err)
 
 	file, err := disk.Open(db)
 
 	assert.NoError(t, err)
+
+	defer os.RemoveAll(db)
+
 	assert.NotNil(t, file)
 	assert.DirExists(t, db)
-	assert.FileExists(t, path.Join(db, "data.csk"))
+	assert.FileExists(t, path.Join(db, file.Name()+".csk"))
 }
 
-func TestDiskFS_Should_Open_Existing_DB(t *testing.T) {
+func TestDiskFS_Should_Rotate_Active_Data_File_DB(t *testing.T) {
+	disk := fs.NewDisk()
+
+	db, _ := os.MkdirTemp("", "newdb")
+
+	file, _ := disk.Open(db)
+
+	defer os.RemoveAll(db)
+
+	newFile, err := disk.Rotate(db)
+
+	assert.NoError(t, err)
+
+	assert.FileExists(t, path.Join(db, file.Name()+".csk"))
+	assert.FileExists(t, path.Join(db, newFile.Name()+".csk"))
+}
+
+func TestDiskFS_Should_Open_Latest_Data_File_For_Existing_DB(t *testing.T) {
 	disk := fs.NewDisk()
 
 	file, err := disk.Open("testdata/defaultdb")
 
 	assert.NoError(t, err)
-	assert.NotNil(t, file)
+	assert.Equal(t, "data12", file.Name())
 }
 
 func TestDiskFS_Should_Walk_Cask_Data_Files(t *testing.T) {
@@ -55,7 +75,7 @@ func TestDiskFS_Should_Walk_Cask_Data_Files(t *testing.T) {
 		return nil
 	})
 
-	wantFiles := []string{"data", "data01", "data02"}
+	wantFiles := []string{"data_1663009510", "data_1663009599", "data_1663009610"}
 
 	assert.NoError(t, err)
 	assert.Equal(t, wantFiles, files)

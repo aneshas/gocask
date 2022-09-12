@@ -9,6 +9,7 @@ import (
 	gopath "path"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // DiskFile represents file on disk
@@ -28,22 +29,44 @@ func NewDisk() *Disk {
 	return &Disk{}
 }
 
-// TODO - write in pages ? (this would be handled in DiskFile abstraction)
+// TODO - write pages ? (this would be handled in DiskFile abstraction)
 
 // Disk represents disk based file system
 type Disk struct{}
 
 // Open opens a default data file for reading and creates it if it does not exist
 func (fs *Disk) Open(path string) (cask.File, error) {
-	dataFile := "data.csk"
-
 	err := fs.createDir(path)
 	if err != nil {
 		return nil, err
 	}
 
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var dataFile string
+
+	if len(entries) > 0 {
+		dataFile = entries[len(entries)-1].Name()
+	}
+
+	return fs.openFile(path, dataFile)
+}
+
+// Rotate creates a new active data file and opens it
+func (fs *Disk) Rotate(path string) (cask.File, error) {
+	return fs.openFile(path, "")
+}
+
+func (fs *Disk) openFile(path string, dataFile string) (cask.File, error) {
+	if dataFile == "" {
+		dataFile = fmt.Sprintf("data_%d.csk", time.Now().Unix())
+	}
+
 	file, err := os.OpenFile(
-		fmt.Sprintf("%s/%s", path, dataFile),
+		gopath.Join(path, dataFile),
 		os.O_RDWR|os.O_CREATE|os.O_APPEND,
 		0755,
 	)

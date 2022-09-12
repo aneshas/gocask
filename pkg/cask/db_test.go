@@ -7,8 +7,11 @@ import (
 	"github.com/aneshas/gocask/pkg/cask"
 	"github.com/aneshas/gocask/pkg/cask/testutil"
 	"github.com/stretchr/testify/assert"
+	"os"
+	"path"
 	"sort"
 	"testing"
+	"time"
 )
 
 func TestShould_Successfully_Store_Values(t *testing.T) {
@@ -61,7 +64,20 @@ func TestShould_Successfully_Store_Values(t *testing.T) {
 	}
 }
 
-func TestShould_Fetch_Previously_Saved_Value(t *testing.T) {
+func TestShould_Fetch_Previously_Saved_Value_In_Memry(t *testing.T) {
+	saveAndFetch(t, "", caskfs.NewInMemory())
+}
+
+func TestShould_Fetch_Previously_Saved_Value_On_Disk(t *testing.T) {
+	dbName := fmt.Sprintf("gocask_db_%d", time.Now().Unix())
+	dbPath := path.Join(os.TempDir(), dbName)
+
+	saveAndFetch(t, dbPath, caskfs.NewDisk())
+
+	assert.NoError(t, os.RemoveAll(dbPath))
+}
+
+func saveAndFetch(t *testing.T, dbPath string, fs cask.FS) {
 	cases := []struct {
 		key string
 		val string
@@ -89,14 +105,12 @@ func TestShould_Fetch_Previously_Saved_Value(t *testing.T) {
 		},
 	}
 
-	fs := caskfs.NewInMemory()
-
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("get/put %s", tc.key), func(t *testing.T) {
 			key := []byte(tc.key)
 			val := []byte(tc.val)
 
-			db, _ := cask.NewDB("path/to/db", fs, testutil.Time(tc.now))
+			db, _ := cask.NewDB(dbPath, fs, testutil.Time(tc.now))
 
 			err := db.Put(key, val)
 
@@ -122,13 +136,13 @@ func TestShould_Fetch_Existing_Values_After_Startup(t *testing.T) {
 		now  uint32
 	}{
 		{
-			file: "data",
+			file: "data0",
 			key:  "foo",
 			val:  "foo bar baz",
 			now:  1234,
 		},
 		{
-			file: "data",
+			file: "data0",
 			key:  "name",
 			val:  "john doe",
 			now:  443,
@@ -269,7 +283,7 @@ func TestShould_Fetch_Updated_Values_From_Different_Files(t *testing.T) {
 			now:  1234,
 		},
 		{
-			file: "data",
+			file: "data0",
 			key:  "bar",
 			val:  "foo bar baz",
 			now:  1234,
@@ -503,6 +517,84 @@ func TestPut_Should_Report_File_Read_Error_For_Existing_Key(t *testing.T) {
 	assert.ErrorIs(t, err, wantErr)
 }
 
+func TestShould_Tolerate_Partial_Write_On_Put(t *testing.T) {
+	var time testutil.Time
+
+	key := []byte("key")
+	val := []byte("foobarbaz")
+
+	path := "mydb"
+
+	fs := testutil.
+		NewInMemory(caskfs.NewInMemory()).
+		WithPartialWriteFor(key)
+
+	db, _ := cask.NewDB(path, fs, time)
+
+	err := db.Put([]byte("user"), []byte("user123456"))
+
+	assert.NoError(t, err)
+
+	err = db.Put(key, val)
+
+	assert.ErrorIs(t, err, cask.ErrPartialWrite)
+
+	wantKey := []byte("ishould")
+	wantVal := []byte("befine")
+
+	err = db.Put(wantKey, wantVal)
+
+	assert.NoError(t, err)
+
+	gotVal, err := db.Get(wantKey)
+
+	assert.NoError(t, err)
+	assert.Equal(t, wantVal, gotVal)
+}
+
+func TestShould_Tolerate_Partial_Write_On_Delete(t *testing.T) {
+	var time testutil.Time
+
+	key := []byte("key")
+	val := []byte("foobarbaz")
+
+	path := "mydb"
+
+	inMem := caskfs.NewInMemory()
+
+	db, err := cask.NewDB(path, inMem, time)
+
+	assert.NoError(t, err)
+
+	err = db.Put(key, val)
+
+	assert.NoError(t, err)
+
+	db, _ = cask.NewDB(
+		path,
+		testutil.
+			NewInMemory(inMem).
+			WithPartialWriteFor(key),
+		time,
+	)
+
+	err = db.Delete(key)
+
+	assert.ErrorIs(t, err, cask.ErrPartialWrite)
+
+	wantKey := []byte("ishould")
+	wantVal := []byte("befine")
+
+	err = db.Put(wantKey, wantVal)
+
+	assert.NoError(t, err)
+
+	gotVal, err := db.Get(wantKey)
+
+	assert.NoError(t, err)
+	assert.Equal(t, wantVal, gotVal)
+}
+
 // TODO Errors cases
 
 // Corrupt header error
@@ -513,8 +605,3 @@ func TestPut_Should_Report_File_Read_Error_For_Existing_Key(t *testing.T) {
 // nil val
 // nil key
 // same key behavior
-
-// TODO
-// List all keys
-// Delete
-// Then follow up with other stuff
