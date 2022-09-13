@@ -11,7 +11,7 @@ import (
 // Executable would provide grpc api
 
 func main() {
-	db, err := gocask.Open("/Users/anes.hasicic/bigdata")
+	db, err := gocask.Open("/Users/anes.hasicic/mydb")
 	if err != nil {
 		log.Fatal(err)
 	}

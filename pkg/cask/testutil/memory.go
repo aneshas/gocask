@@ -36,6 +36,10 @@ func (i *InMemoryFile) Name() string {
 	return i.file.Name()
 }
 
+func (i *InMemoryFile) Size() int64 {
+	return 0
+}
+
 type InMemory struct {
 	fs    cask.FS
 	pwKey []byte

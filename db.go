@@ -24,7 +24,7 @@ func Open(dbPath string) (*DB, error) {
 
 	var t goTime
 
-	db, err := cask.NewDB(dbPath, caskFS, t)
+	db, err := cask.NewDB(dbPath, caskFS, t, cask.DefaultConfig)
 	if err != nil {
 		return nil, err
 	}

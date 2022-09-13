@@ -30,8 +30,13 @@ func (i *InMemoryFile) Name() string {
 	return i.name
 }
 
+func (i *InMemoryFile) Size() int64 {
+	return 0
+}
+
 type InMemory struct {
-	b []byte
+	b           []byte
+	currentFile *InMemoryFile
 }
 
 func NewInMemory() *InMemory {
@@ -39,17 +44,19 @@ func NewInMemory() *InMemory {
 }
 
 func (i *InMemory) Open(_ string) (cask.File, error) {
-	return &InMemoryFile{
+	i.currentFile = &InMemoryFile{
 		name:   "data",
 		reader: bytes.NewReader(i.b),
 		f: func(buf []byte) {
 			i.b = append(i.b, buf...)
 		},
-	}, nil
+	}
+
+	return i.currentFile, nil
 }
 
-func (i *InMemory) Rotate(path string) (cask.File, error) {
-	return i.Open(path)
+func (i *InMemory) Rotate(_ string) (cask.File, error) {
+	return i.currentFile, nil
 }
 
 func (i *InMemory) Walk(_ string, f func(cask.File) error) error {

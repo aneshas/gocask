@@ -16,7 +16,8 @@ type FS struct {
 	mockFiles      map[string][]byte
 	mockFilesOrder []string
 
-	file *mocks2.File
+	file    *mocks2.File
+	newFile *mocks2.File
 
 	Path     string
 	DataFile string
@@ -32,13 +33,14 @@ func NewFS() *FS {
 	}
 }
 
-// WithWriteSupport setup
-func (fs *FS) WithWriteSupport() *FS {
+// WithMockWriteSupport setup
+func (fs *FS) WithMockWriteSupport() *FS {
 	var file mocks2.File
 
 	file.On("Name").Return(fs.DataFile)
 	file.On("Write", mock.Anything).Return(0, nil)
 	file.On("Close").Return(nil)
+	file.On("Size").Return(int64(0))
 
 	fs.On("Open", fs.Path).Return(&file, nil)
 	fs.On("Walk", fs.Path, mock.Anything).Return(nil)
@@ -48,6 +50,42 @@ func (fs *FS) WithWriteSupport() *FS {
 	return fs
 }
 
+// WithToppedUpDataFile setup
+func (fs *FS) WithToppedUpDataFile(atSize int64) *FS {
+	var file mocks2.File
+
+	file.On("Name").Return(fs.DataFile)
+	file.On("Close").Return(nil)
+	file.On("Size").Return(atSize)
+
+	fs.On("Open", fs.Path).Return(&file, nil)
+	fs.On("Walk", fs.Path, mock.Anything).Return(nil)
+
+	var newFile mocks2.File
+
+	newFile.On("Name").Return("new-data-file")
+	newFile.On("Close").Return(nil)
+	newFile.On("Write", mock.Anything).Return(0, nil)
+
+	fs.On("Rotate", fs.Path).Return(&newFile, nil)
+
+	fs.file = &file
+	fs.newFile = &newFile
+
+	return fs
+}
+
+// VerifyDataFileIsRotated verifies that current active data file has been closed
+// and that new one has been opened
+func (fs *FS) VerifyDataFileIsRotated(t *testing.T) {
+	fs.file.AssertCalled(t, "Size")
+	fs.file.AssertCalled(t, "Close")
+}
+
+func (fs *FS) VerifyWriteGoesToNewlyActiveDataFile(t *testing.T) {
+	fs.newFile.AssertCalled(t, "Write", mock.Anything)
+}
+
 // WithFailWithErrOnWrite setup
 func (fs *FS) WithFailWithErrOnWrite(err error) *FS {
 	var file mocks2.File
@@ -55,6 +93,7 @@ func (fs *FS) WithFailWithErrOnWrite(err error) *FS {
 	file.On("Name").Return(fs.DataFile)
 	file.On("Write", mock.Anything).Return(0, err)
 	file.On("Close").Return(nil)
+	file.On("Size").Return(int64(0))
 
 	fs.On("Open", fs.Path).Return(&file, nil)
 	fs.On("Walk", fs.Path, mock.Anything).Return(nil)
@@ -165,4 +204,8 @@ func (e *echoFile) Close() error {
 
 func (e *echoFile) Name() string {
 	return e.name
+}
+
+func (e *echoFile) Size() int64 {
+	return 0
 }

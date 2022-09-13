@@ -24,13 +24,22 @@ func TestDisk_DB_Should_Store_And_Retrieve_A_Set_Of_Key_Val_Pairs(t *testing.T) 
 	dbName := fmt.Sprintf("gocask_db_%d", time.Now().Unix())
 	dbPath := path.Join(os.TempDir(), dbName)
 
+	defer os.RemoveAll(dbPath)
+
 	db, _ := gocask.Open(dbPath)
 	defer db.Close()
 
 	writeReadAndAssert(t, db)
-
-	assert.NoError(t, os.RemoveAll(dbPath))
 }
+
+//func TestGenDB(t *testing.T) {
+//	dbPath := "/Users/anes.hasicic/mydb"
+//
+//	db, _ := gocask.Open(dbPath)
+//	defer db.Close()
+//
+//	writeReadAndAssert(t, db)
+//}
 
 func writeReadAndAssert(t *testing.T, db *gocask.DB) {
 	file, err := os.Open("testdata/big_data.txt")
@@ -60,10 +69,12 @@ func writeReadAndAssert(t *testing.T, db *gocask.DB) {
 	assert.NoError(t, err)
 
 	for key, want := range entries {
-		got, err := db.Get([]byte(key))
+		t.Run(fmt.Sprintf("get_%s", key), func(t *testing.T) {
+			got, err := db.Get([]byte(key))
 
-		assert.NoError(t, err)
-		assert.Equal(t, want, got)
+			assert.NoError(t, err)
+			assert.Equal(t, want, got)
+		})
 	}
 }
 

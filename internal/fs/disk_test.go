@@ -51,8 +51,12 @@ func TestDiskFS_Should_Rotate_Active_Data_File_DB(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	assert.FileExists(t, path.Join(db, file.Name()+".csk"))
-	assert.FileExists(t, path.Join(db, newFile.Name()+".csk"))
+	oldData := file.Name() + ".csk"
+	newData := newFile.Name() + ".csk"
+
+	assert.NotEqual(t, newData, oldData)
+	assert.FileExists(t, path.Join(db, oldData))
+	assert.FileExists(t, path.Join(db, newData))
 }
 
 func TestDiskFS_Should_Open_Latest_Data_File_For_Existing_DB(t *testing.T) {
@@ -61,7 +65,7 @@ func TestDiskFS_Should_Open_Latest_Data_File_For_Existing_DB(t *testing.T) {
 	file, err := disk.Open("testdata/defaultdb")
 
 	assert.NoError(t, err)
-	assert.Equal(t, "data12", file.Name())
+	assert.Equal(t, "data_1_12", file.Name())
 }
 
 func TestDiskFS_Should_Walk_Cask_Data_Files(t *testing.T) {
@@ -75,7 +79,7 @@ func TestDiskFS_Should_Walk_Cask_Data_Files(t *testing.T) {
 		return nil
 	})
 
-	wantFiles := []string{"data_1663009510", "data_1663009599", "data_1663009610"}
+	wantFiles := []string{"data_0_1663009510", "data_1_1663009599", "data_2_1663009610"}
 
 	assert.NoError(t, err)
 	assert.Equal(t, wantFiles, files)
@@ -137,5 +141,3 @@ func TestDiskFS_Should_Report_Out_Of_Bounds_Read(t *testing.T) {
 
 	assert.Error(t, err)
 }
-
-// TODO - Test Order when we know it

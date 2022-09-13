@@ -15,13 +15,27 @@ import (
 // DiskFile represents file on disk
 type DiskFile struct {
 	*os.File
+
+	size int64
 }
 
 // Name returns the base name of the file (without path and/or extension)
-func (fs *DiskFile) Name() string {
-	baseName := filepath.Base(fs.File.Name())
+func (f *DiskFile) Name() string {
+	baseName := filepath.Base(f.File.Name())
 
 	return strings.TrimSuffix(baseName, filepath.Ext(baseName))
+}
+
+// Size returns current data file size in kb
+func (f *DiskFile) Size() int64 {
+	return f.size
+}
+
+// Write delegates writing to the underlying file and increments file size
+func (f *DiskFile) Write(p []byte) (int, error) {
+	f.size += int64(len(p))
+
+	return f.File.Write(p)
 }
 
 // NewDisk instantiates new disk based file system
@@ -52,17 +66,22 @@ func (fs *Disk) Open(path string) (cask.File, error) {
 		dataFile = entries[len(entries)-1].Name()
 	}
 
-	return fs.openFile(path, dataFile)
+	return fs.openFile(path, dataFile, len(entries))
 }
 
 // Rotate creates a new active data file and opens it
 func (fs *Disk) Rotate(path string) (cask.File, error) {
-	return fs.openFile(path, "")
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return fs.openFile(path, "", len(entries))
 }
 
-func (fs *Disk) openFile(path string, dataFile string) (cask.File, error) {
+func (fs *Disk) openFile(path string, dataFile string, n int) (cask.File, error) {
 	if dataFile == "" {
-		dataFile = fmt.Sprintf("data_%d.csk", time.Now().Unix())
+		dataFile = fmt.Sprintf("data_%d_%d.csk", n, time.Now().Unix())
 	}
 
 	file, err := os.OpenFile(
@@ -74,8 +93,14 @@ func (fs *Disk) openFile(path string, dataFile string) (cask.File, error) {
 		return nil, fmt.Errorf("could not open db: %w", err)
 	}
 
+	info, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+
 	return &DiskFile{
 		file,
+		info.Size(),
 	}, nil
 }
 
@@ -109,7 +134,7 @@ func (fs *Disk) Walk(path string, wf func(cask.File) error) error {
 			return err
 		}
 
-		err = wf(&DiskFile{file})
+		err = wf(&DiskFile{file, 0})
 		if err != nil {
 			e := file.Close()
 			if e != nil {

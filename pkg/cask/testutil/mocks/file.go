@@ -58,6 +58,20 @@ func (_m *File) Read(p []byte) (int, error) {
 	return r0, r1
 }
 
+// Size provides a mock function with given fields:
+func (_m *File) Size() int64 {
+	ret := _m.Called()
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func() int64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	return r0
+}
+
 // Write provides a mock function with given fields: p
 func (_m *File) Write(p []byte) (int, error) {
 	ret := _m.Called(p)
