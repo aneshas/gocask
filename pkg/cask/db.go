@@ -4,11 +4,10 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/aneshas/gocask/internal/crc"
 	"io"
 	"sync"
 )
-
-// TODO - max file should be configurable (configure other stuff also per dependency and merge to one config in root)
 
 var (
 	// ErrKeyNotFound signifies that the requested key was not found in keydir
@@ -18,6 +17,15 @@ var (
 	// ErrPartialWrite signifies that the underlying disk write was not complete, which means
 	// that write was successful but the entry is corrupted and the operation should be retried
 	ErrPartialWrite = errors.New("gocask: key/value pair not fully written")
+
+	// ErrInvalidKey is thrown when attempting Get, Put or Delete with an invalid key
+	ErrInvalidKey = errors.New("gocask: key should not be empty or nil")
+
+	// ErrInvalidValue is thrown when attempting to store a nil value
+	ErrInvalidValue = errors.New("gocask: value cannot be nil")
+
+	// ErrCRCFailed is thrown when value is corrupted
+	ErrCRCFailed = errors.New("gocask: crc check failed for db entry (value is corrupted)")
 )
 
 // InMemoryDB represents a magic value which can be used instead of db path
@@ -121,7 +129,6 @@ func (db *DB) walkFile(file File) error {
 				break
 			}
 
-			// TODO - Test for ErrUnexpectedEOF and unknown err
 			return fmt.Errorf("gocask: startup error: %w", err)
 		}
 	}
@@ -154,7 +161,6 @@ func (db *DB) readEntry(r *bufio.Reader, file string) error {
 		return nil
 	}
 
-	// TODO - Test
 	_, err = r.Discard(int(h.ValueSize))
 	if err != nil {
 		return err
@@ -171,28 +177,25 @@ func (db *DB) Close() error {
 
 // Put stores the value under given key
 func (db *DB) Put(key, val []byte) error {
+	if len(key) == 0 {
+		return ErrInvalidKey
+	}
+
+	if val == nil {
+		return ErrInvalidValue
+	}
+
 	db.m.Lock()
 	defer db.m.Unlock()
 
 	h := db.newHeader(key, val)
 
-	if (db.file.Size() + int64(h.entrySize())) > db.cfg.MaxDataFileSize {
-		err := db.file.Close()
-		if err != nil {
-			return err
-		}
-
-		file, err := db.fs.Rotate(db.path)
-		if err != nil {
-			return err
-		}
-
-		db.file = file
-
-		db.kd.resetOffset()
+	err := db.rotateDataFile(h)
+	if err != nil {
+		return err
 	}
 
-	h, err := db.writeKeyVal(h, key, val)
+	err = db.writeKeyVal(h, key, val)
 	if err != nil {
 		return err
 	}
@@ -202,11 +205,33 @@ func (db *DB) Put(key, val []byte) error {
 	return nil
 }
 
+func (db *DB) rotateDataFile(h header) error {
+	if (db.file.Size() + int64(h.entrySize())) <= db.cfg.MaxDataFileSize {
+		return nil
+	}
+
+	err := db.file.Close()
+	if err != nil {
+		return err
+	}
+
+	file, err := db.fs.Rotate(db.path)
+	if err != nil {
+		return err
+	}
+
+	db.file = file
+
+	db.kd.resetOffset()
+
+	return nil
+}
+
 // Delete deletes a key/value pair if it exists or reports key not found
 // error if the key does not exist
 func (db *DB) Delete(key []byte) error {
 	_, err := db.Get(key)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrCRCFailed) {
 		return err
 	}
 
@@ -215,7 +240,7 @@ func (db *DB) Delete(key []byte) error {
 
 	h := db.newHeader(nil, key)
 
-	_, err = db.writeKeyVal(h, nil, key)
+	err = db.writeKeyVal(h, nil, key)
 	if err != nil {
 		return err
 	}
@@ -234,10 +259,10 @@ func (db *DB) newHeader(key, val []byte) header {
 
 	vSize := uint32(len(val))
 
-	return newHeader(db.time.NowUnix(), kSize, vSize)
+	return newHeader(crc.CalcCRC32(val), db.time.NowUnix(), kSize, vSize)
 }
 
-func (db *DB) writeKeyVal(h header, key, val []byte) (header, error) {
+func (db *DB) writeKeyVal(h header, key, val []byte) error {
 	entry := serializeEntry(h, key, val)
 
 	n, err := db.file.Write(entry)
@@ -245,11 +270,11 @@ func (db *DB) writeKeyVal(h header, key, val []byte) (header, error) {
 		if n > 0 {
 			db.kd.advanceOffsetBy(uint32(n))
 
-			return h, ErrPartialWrite
+			return ErrPartialWrite
 		}
 	}
 
-	return h, err
+	return err
 }
 
 func serializeEntry(h header, key, val []byte) []byte {
@@ -268,6 +293,10 @@ func serializeEntry(h header, key, val []byte) []byte {
 
 // Get retrieves a value stored under given key
 func (db *DB) Get(key []byte) ([]byte, error) {
+	if len(key) == 0 {
+		return nil, ErrInvalidKey
+	}
+
 	db.m.RLock()
 	defer db.m.RUnlock()
 
@@ -281,6 +310,10 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 	_, err = db.fs.ReadFileAt(db.path, ke.File, val, int64(ke.ValuePos))
 	if err != nil {
 		return nil, err
+	}
+
+	if ke.CRC != crc.CalcCRC32(val) {
+		return nil, ErrCRCFailed
 	}
 
 	return val, nil

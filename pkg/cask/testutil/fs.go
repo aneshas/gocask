@@ -33,6 +33,21 @@ func NewFS() *FS {
 	}
 }
 
+// WithMockValue setup
+func (fs *FS) WithMockValue(val []byte) *FS {
+	fs.On("ReadFileAt", fs.Path, mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			dest := args[2].([]byte)
+
+			for i := range val {
+				dest[i] = val[i]
+			}
+		}).
+		Return(0, nil)
+
+	return fs
+}
+
 // WithMockWriteSupport setup
 func (fs *FS) WithMockWriteSupport() *FS {
 	var file mocks2.File

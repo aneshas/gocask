@@ -1,11 +1,15 @@
 package testutil
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"github.com/aneshas/gocask/internal/crc"
+)
 
 var bo binary.ByteOrder = binary.LittleEndian
 
 func Entry(now uint32, key, val []byte) []byte {
 	return AppendBytes(
+		U32ToB(crc.CalcCRC32(val)),
 		U32ToB(now),
 		U32ToB(uint32(len(key))),
 		U32ToB(uint32(len(val))),

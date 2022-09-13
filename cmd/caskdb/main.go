@@ -8,7 +8,7 @@ import (
 )
 
 // Cask would be usable as an embedded store (root) or as an executable (this)
-// Executable would provide grpc api
+// Executable would provide grpc api (maybe later) for now add http and swagger (made for learning)
 
 func main() {
 	db, err := gocask.Open("/Users/anes.hasicic/mydb")
@@ -38,6 +38,15 @@ func main() {
 		}
 
 		fmt.Printf("%s: %s\n", os.Args[2], val)
+	}
+
+	if os.Args[1] == "del" {
+		err := db.Delete([]byte(os.Args[2]))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Printf("Deleted: %s\n", os.Args[2])
 	}
 
 	if os.Args[1] == "keys" {

@@ -103,6 +103,11 @@ func saveAndFetch(t *testing.T, dbPath string, fs cask.FS) {
 			val: "test",
 			now: 999999,
 		},
+		{
+			key: "emptyval",
+			val: "",
+			now: 88888,
+		},
 	}
 
 	for _, tc := range cases {
@@ -488,8 +493,6 @@ func TestRotate_Data_Files_When_Threshold_Size_Is_Exceeded(t *testing.T) {
 	fs.VerifyWriteGoesToNewlyActiveDataFile(t)
 }
 
-// TODO - Test errs
-
 func TestShould_Fetch_Value_From_Rotated_File(t *testing.T) {
 	dbName := fmt.Sprintf("gocask_db_%d", gotime.Now().Unix())
 	dbPath := gopath.Join(os.TempDir(), dbName)
@@ -659,13 +662,74 @@ func TestShould_Tolerate_Partial_Write_On_Delete(t *testing.T) {
 	assert.Equal(t, wantVal, gotVal)
 }
 
-// TODO Errors cases
+func TestShould_Validate_Empty_Keys(t *testing.T) {
+	validateKey(t, []byte{})
+}
 
-// Corrupt header error
-// CRC errors
-// file open errors
-// allow Empty val get
-// empty key put not allow
-// nil val
-// nil key
-// same key behavior
+func TestShould_Validate_Nil_Keys(t *testing.T) {
+	validateKey(t, nil)
+}
+
+func validateKey(t *testing.T, key []byte) {
+	db := getInMemDB(t)
+
+	defer db.Close()
+
+	_, err := db.Get(key)
+
+	assert.ErrorIs(t, err, cask.ErrInvalidKey)
+
+	err = db.Put(key, []byte("foo"))
+
+	assert.ErrorIs(t, err, cask.ErrInvalidKey)
+
+	err = db.Delete(key)
+
+	assert.ErrorIs(t, err, cask.ErrInvalidKey)
+}
+
+func TestShould_Validate_Nil_Value(t *testing.T) {
+	db := getInMemDB(t)
+
+	defer db.Close()
+
+	err := db.Put([]byte("foo"), nil)
+
+	assert.ErrorIs(t, err, cask.ErrInvalidValue)
+}
+
+func getInMemDB(t *testing.T) *cask.DB {
+	var time testutil.Time
+
+	path := "mydb"
+
+	inMem := caskfs.NewInMemory()
+
+	db, err := cask.NewDB(path, inMem, time, cask.DefaultConfig)
+
+	assert.NoError(t, err)
+
+	return db
+}
+
+func TestShould_Fail_CRC_Check(t *testing.T) {
+	fs := testutil.NewFS().
+		WithMockWriteSupport().
+		WithMockValue([]byte("corrupted"))
+
+	var time testutil.Time
+
+	db, _ := cask.NewDB(fs.Path, fs, time, cask.DefaultConfig)
+
+	key := []byte("foo")
+	val := []byte("uncorrupted")
+
+	err := db.Put(key, val)
+
+	assert.NoError(t, err)
+
+	got, err := db.Get(key)
+
+	assert.ErrorIs(t, err, cask.ErrCRCFailed)
+	assert.Nil(t, got)
+}

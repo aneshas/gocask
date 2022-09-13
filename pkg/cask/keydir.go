@@ -1,6 +1,7 @@
 package cask
 
 type kdEntry struct {
+	CRC       uint32
 	Timestamp uint32
 	ValuePos  uint32
 	ValueSize uint32
@@ -20,6 +21,7 @@ func newKeyDir() *keyDir {
 
 func (kd *keyDir) set(key string, h header, file string) {
 	entry := kdEntry{
+		CRC:       h.CRC,
 		ValuePos:  kd.lastOffset + h.entrySize() - h.ValueSize,
 		ValueSize: h.ValueSize,
 		Timestamp: h.Timestamp,

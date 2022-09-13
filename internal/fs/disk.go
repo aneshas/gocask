@@ -43,8 +43,6 @@ func NewDisk() *Disk {
 	return &Disk{}
 }
 
-// TODO - write pages ? (this would be handled in DiskFile abstraction)
-
 // Disk represents disk based file system
 type Disk struct{}
 
@@ -123,8 +121,6 @@ func (fs *Disk) createDir(path string) error {
 
 func (fs *Disk) Walk(path string, wf func(cask.File) error) error {
 	return filepath.Walk(path, func(p string, info gofs.FileInfo, err error) error {
-		// TODO err ?
-
 		if info.IsDir() || gopath.Ext(p) != ".csk" {
 			return nil
 		}

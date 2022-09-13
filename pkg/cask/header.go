@@ -7,15 +7,16 @@ import (
 
 var (
 	byteOrder  binary.ByteOrder = binary.LittleEndian
-	headerSize uint32           = 12
+	headerSize uint32           = 16
 )
 
 type header struct {
-	Timestamp, KeySize, ValueSize uint32
+	CRC, Timestamp, KeySize, ValueSize uint32
 }
 
-func newHeader(t, ksz, vsz uint32) header {
+func newHeader(crc, t, ksz, vsz uint32) header {
 	return header{
+		CRC:       crc,
 		Timestamp: t,
 		KeySize:   ksz,
 		ValueSize: vsz,
@@ -25,9 +26,10 @@ func newHeader(t, ksz, vsz uint32) header {
 func (h header) encode() []byte {
 	b := make([]byte, headerSize)
 
-	byteOrder.PutUint32(b[0:4], h.Timestamp)
-	byteOrder.PutUint32(b[4:8], h.KeySize)
-	byteOrder.PutUint32(b[8:], h.ValueSize)
+	byteOrder.PutUint32(b[0:4], h.CRC)
+	byteOrder.PutUint32(b[4:8], h.Timestamp)
+	byteOrder.PutUint32(b[8:12], h.KeySize)
+	byteOrder.PutUint32(b[12:], h.ValueSize)
 
 	return b
 }
