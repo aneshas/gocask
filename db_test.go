@@ -26,7 +26,11 @@ func TestDisk_DB_Should_Store_And_Retrieve_A_Set_Of_Key_Val_Pairs(t *testing.T) 
 
 	defer os.RemoveAll(dbPath)
 
-	db, _ := gocask.Open(dbName, gocask.WithDataDir(os.TempDir()))
+	db, _ := gocask.Open(
+		dbName,
+		gocask.WithDataDir(os.TempDir()),
+		gocask.WithMaxDataFileSize(10*gocask.GB),
+	)
 	defer db.Close()
 
 	writeReadAndAssert(t, db)
