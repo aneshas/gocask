@@ -12,7 +12,7 @@ import (
 func main() {
 	e := echo.New()
 
-	db, err := gocask.Open("/Users/anes.hasicic/mydb")
+	db, err := gocask.Open("/foodb")
 	if err != nil {
 		log.Fatal(err)
 	}
