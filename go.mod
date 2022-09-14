@@ -3,7 +3,6 @@ module github.com/aneshas/gocask
 go 1.18
 
 require (
-	github.com/jaswdr/faker v1.10.2
 	github.com/labstack/echo/v4 v4.9.0
 	github.com/stretchr/testify v1.8.0
 	github.com/twitchtv/twirp v8.1.2+incompatible

@@ -71,9 +71,9 @@ func Open(dbPath string, opts ...Option) (*DB, error) {
 // Option represents gocask configuration option
 type Option func(config cask.Config) cask.Config
 
-// WithMaximumDataFileSize configures maximum data file size after which
+// WithMaxDataFileSize configures maximum data file size after which
 // data files will be rotated
-func WithMaximumDataFileSize(bytes int64) Option {
+func WithMaxDataFileSize(bytes int64) Option {
 	return func(config cask.Config) cask.Config {
 		config.MaxDataFileSize = bytes
 
@@ -89,10 +89,6 @@ func WithDataDir(path string) Option {
 		return config
 	}
 }
-
-// TODO
-// Max file size config (maybe not in bytes?)
-// Default data folder config
 
 type goTime struct{}
 

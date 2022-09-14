@@ -74,7 +74,7 @@ func TestShould_Fetch_Previously_Saved_Value_On_Disk(t *testing.T) {
 
 	defer os.RemoveAll(dbPath)
 
-	saveAndFetch(t, dbPath, caskfs.NewDisk())
+	saveAndFetch(t, dbName, caskfs.NewDisk())
 }
 
 func saveAndFetch(t *testing.T, dbPath string, fs cask.FS) {
@@ -115,7 +115,11 @@ func saveAndFetch(t *testing.T, dbPath string, fs cask.FS) {
 			key := []byte(tc.key)
 			val := []byte(tc.val)
 
-			db, _ := cask.NewDB(dbPath, fs, testutil.Time(tc.now), cask.DefaultConfig)
+			config := cask.DefaultConfig
+
+			config.DataDir = os.TempDir()
+
+			db, _ := cask.NewDB(dbPath, fs, testutil.Time(tc.now), config)
 
 			err := db.Put(key, val)
 

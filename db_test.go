@@ -32,17 +32,8 @@ func TestDisk_DB_Should_Store_And_Retrieve_A_Set_Of_Key_Val_Pairs(t *testing.T) 
 	writeReadAndAssert(t, db)
 }
 
-//func TestGenDB(t *testing.T) {
-//	dbPath := "/Users/anes.hasicic/mydb"
-//
-//	db, _ := gocask.Open(dbPath)
-//	defer db.Close()
-//
-//	writeReadAndAssert(t, db)
-//}
-
 func writeReadAndAssert(t *testing.T, db *gocask.DB) {
-	file, err := os.Open("testdata/big_data.txt")
+	file, err := os.Open("testdata/data.txt")
 
 	assert.NoError(t, err)
 
