@@ -15,6 +15,7 @@
 
 !Makefile
 !dbfile
+!LICENCE
 _tools/bin/
 
 # Test binary, built with `go test -c`
