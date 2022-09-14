@@ -109,7 +109,7 @@ func (fs *Disk) createDir(path string) error {
 			return err
 		}
 
-		return os.Mkdir(path, 0755)
+		return os.MkdirAll(path, 0755)
 	}
 
 	if !info.IsDir() {

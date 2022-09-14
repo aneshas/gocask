@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package github.com.aneshas.gocask;
+option go_package = "github.com/aneshas/gocask/rpc";
+
+service GoCask {
+  rpc Put(PutRequest) returns (Empty);
+  rpc Get(GetRequest) returns (Entry);
+  rpc Delete(DeleteRequest) returns (Empty);
+  rpc Keys(Empty) returns (KeysResponse);
+}
+
+message KeysResponse {
+  repeated string mkeys = 1;
+}
+
+message GetRequest {
+  bytes key = 1;
+}
+
+message DeleteRequest {
+  bytes key = 1;
+}
+
+message PutRequest {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+message Entry {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+message Empty {}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/aneshas/gocask/internal/crc"
 	"io"
+	"path"
 	"sync"
 )
 
@@ -18,14 +19,14 @@ var (
 	// that write was successful but the entry is corrupted and the operation should be retried
 	ErrPartialWrite = errors.New("gocask: key/value pair not fully written")
 
+	// ErrCRCFailed is thrown upon reading a corrupted value
+	ErrCRCFailed = errors.New("gocask: crc check failed for db entry (value is corrupted)")
+
 	// ErrInvalidKey is thrown when attempting Get, Put or Delete with an invalid key
 	ErrInvalidKey = errors.New("gocask: key should not be empty or nil")
 
 	// ErrInvalidValue is thrown when attempting to store a nil value
-	ErrInvalidValue = errors.New("gocask: value cannot be nil")
-
-	// ErrCRCFailed is thrown when value is corrupted
-	ErrCRCFailed = errors.New("gocask: crc check failed for db entry (value is corrupted)")
+	ErrInvalidValue = errors.New("gocask: value should not be nil")
 )
 
 // InMemoryDB represents a magic value which can be used instead of db path
@@ -75,15 +76,19 @@ type DB struct {
 var DefaultConfig = Config{
 	MaxDataFileSize: 1024 * 1024 * 1024 * 1024 * 10,
 	//MaxDataFileSize: 1024 * 1024 * 40,
+	//Dat file size minimum
 }
 
 // Config represents gocask config
 type Config struct {
 	MaxDataFileSize int64
+	DataDir         string
 }
 
 // NewDB instantiates new db with provided FS as storage mechanism
 func NewDB(dbpath string, fs FS, time Time, cfg Config) (*DB, error) {
+	dbpath = path.Join(cfg.DataDir, dbpath)
+
 	f, err := fs.Open(dbpath)
 	if err != nil {
 		return nil, err
