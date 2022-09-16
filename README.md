@@ -43,7 +43,7 @@ While the server is running you can interact with it via `gccli` binary:
 
 `gccli` is just meant as a simple probing tool, and you can generate your own client you can use the .proto definition included (or use the pre generated [go client](./rpc).
  
-If you don't have go installed, you can go to [releases](https://github.com/aneshas/gocask/releases) download latest release and go through the same process.
+If you don't have go installed, you can go to [releases](https://github.com/aneshas/gocask/releases) download latest release and go through the same process as above.
 
 
 # Still to come
@@ -51,6 +51,8 @@ Since the primary motivation for this repo was learning more about how db engine
 
 Some things that are on my mind:
 - Current key deletion is a soft delete (implement garbage collection of deleted keys)
+- Double down on tests (maybe fuzzing)
+- Add benchmarks
 - Use hint file to improve the startup time
 - Support for multiple processes and locking
 - Making it distributed 
