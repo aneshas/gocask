@@ -21,7 +21,7 @@ func TestInMemory_DB_Should_Store_And_Retrieve_A_Set_Of_Key_Val_Pairs(t *testing
 }
 
 func TestDisk_DB_Should_Store_And_Retrieve_A_Set_Of_Key_Val_Pairs(t *testing.T) {
-	dbName := fmt.Sprintf("gocask_db_%d", time.Now().Unix())
+	dbName := fmt.Sprintf("cask_db_%d", time.Now().Unix())
 	dbPath := path.Join(os.TempDir(), dbName)
 
 	defer os.RemoveAll(dbPath)
