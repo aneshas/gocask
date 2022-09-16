@@ -14,9 +14,6 @@ builds:
     goos:
       - linux
       - windows
+      - darwin
     goarch:
       - amd64
-
-#archives:
-#  - files:
-#      - scripts/*
