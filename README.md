@@ -25,6 +25,8 @@ Special thanks go to the amazing [Ben Johnson](https://medium.com/@benbjohnson) 
 There are two ways to use gocask
 
 ## Using gocask as a library (embedded db) in your own app 
+GoCask can be used similarly to bolt or badger as an embedded db.
+
 `go get github.com/aneshas/gocask/cmd/gocask` and use the api. See the [docs](https://pkg.go.dev/github.com/aneshas/gocask#readme-gocask) 
 
 ## Running as a standalone process
