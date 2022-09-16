@@ -3,6 +3,7 @@ module github.com/aneshas/gocask
 go 1.18
 
 require (
+	github.com/aneshas/flags v0.1.2
 	github.com/labstack/echo/v4 v4.9.0
 	github.com/stretchr/testify v1.8.0
 	github.com/twitchtv/twirp v8.1.2+incompatible
@@ -11,6 +12,7 @@ require (
 )
 
 require (
+	github.com/cstockton/go-conv v1.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect

@@ -1,0 +1,22 @@
+builds:
+  - main: ./cmd/gocask
+    id: "server"
+    binary: gocask
+    goos:
+      - linux
+      - windows
+    goarch:
+      - amd64
+
+  - main: ./cmd/gccli
+    id: "cli"
+    binary: gccli
+    goos:
+      - linux
+      - windows
+    goarch:
+      - amd64
+
+#archives:
+#  - files:
+#      - scripts/*
