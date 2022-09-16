@@ -51,9 +51,10 @@ Since the primary motivation for this repo was learning more about how db engine
 
 Some things that are on my mind:
 - Current key deletion is a soft delete (implement garbage collection of deleted keys)
+- Buffer writes
+- Use hint file to improve the startup time
 - Double down on tests (maybe fuzzing)
 - Add benchmarks
-- Use hint file to improve the startup time
 - Support for multiple processes and locking
 - Making it distributed 
 - An [eventstore](https://github.com/aneshas/eventstore) spin off (use gocask instead of sqlite)
