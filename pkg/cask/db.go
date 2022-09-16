@@ -192,9 +192,9 @@ func (db *DB) Put(key, val []byte) error {
 	db.m.Lock()
 	defer db.m.Unlock()
 
-	h := db.newHeader(key, val)
+	h := newKVHeader(db.time.NowUnix(), key, val)
 
-	err := db.rotateDataFile(h)
+	err := db.rotateDataFile(int64(h.entrySize()))
 	if err != nil {
 		return err
 	}
@@ -209,8 +209,8 @@ func (db *DB) Put(key, val []byte) error {
 	return nil
 }
 
-func (db *DB) rotateDataFile(h header) error {
-	if (db.file.Size() + int64(h.entrySize())) <= db.cfg.MaxDataFileSize {
+func (db *DB) rotateDataFile(entrySz int64) error {
+	if (db.file.Size() + entrySz) <= db.cfg.MaxDataFileSize {
 		return nil
 	}
 
@@ -242,7 +242,7 @@ func (db *DB) Delete(key []byte) error {
 	db.m.Lock()
 	defer db.m.Unlock()
 
-	h := db.newHeader(nil, key)
+	h := newKVHeader(db.time.NowUnix(), nil, key)
 
 	err = db.writeKeyVal(h, nil, key)
 	if err != nil {
@@ -252,18 +252,6 @@ func (db *DB) Delete(key []byte) error {
 	db.kd.unset(string(key))
 
 	return nil
-}
-
-func (db *DB) newHeader(key, val []byte) header {
-	var kSize uint32
-
-	if key != nil {
-		kSize = uint32(len(key))
-	}
-
-	vSize := uint32(len(val))
-
-	return newHeader(crc.CalcCRC32(val), db.time.NowUnix(), kSize, vSize)
 }
 
 func (db *DB) writeKeyVal(h header, key, val []byte) error {

@@ -2,6 +2,7 @@ package cask
 
 import (
 	"encoding/binary"
+	"github.com/aneshas/gocask/internal/crc"
 	"io"
 )
 
@@ -12,6 +13,18 @@ var (
 
 type header struct {
 	CRC, Timestamp, KeySize, ValueSize uint32
+}
+
+func newKVHeader(t uint32, key, val []byte) header {
+	var kSize uint32
+
+	if key != nil {
+		kSize = uint32(len(key))
+	}
+
+	vSize := uint32(len(val))
+
+	return newHeader(crc.CalcCRC32(val), t, kSize, vSize)
 }
 
 func newHeader(crc, t, ksz, vsz uint32) header {
