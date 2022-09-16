@@ -1,5 +1,5 @@
 # GoCask
-[![Go](https://github.com/aneshas/gocask/actions/workflows/go.yml/badge.svg)](https://github.com/aneshas/gocask/actions/workflows/go.yml)
+[![Go Test](https://github.com/aneshas/gocask/actions/workflows/test.yml/badge.svg)](https://github.com/aneshas/gocask/actions/workflows/test.yml)
 [![Coverage Status](https://coveralls.io/repos/github/aneshas/gocask/badge.svg?branch=trunk)](https://coveralls.io/github/aneshas/gocask?branch=trunk)
 [![Go Report Card](https://goreportcard.com/badge/github.com/aneshas/gocask)](https://goreportcard.com/report/github.com/aneshas/gocask)
 [![Go Reference](https://pkg.go.dev/badge/github.com/aneshas/gocask.svg)](https://pkg.go.dev/github.com/aneshas/gocask)
