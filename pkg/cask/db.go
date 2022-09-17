@@ -74,7 +74,7 @@ type DB struct {
 
 // DefaultConfig represents default gocask config
 var DefaultConfig = Config{
-	MaxDataFileSize: 1024 * 1024 * 1024 * 10,
+	MaxDataFileSize: 1024 * 1024 * 1024 * 2,
 	DataDir:         "./",
 }
 

@@ -17,9 +17,13 @@ Special thanks go to the amazing [Ben Johnson](https://medium.com/@benbjohnson) 
 - Ease of backup and restore
 - A relatively simple, understandable (and thus supportable) code structure and data format
 - Predictable behavior under heavy access load or large volume
-- Data files are rotated based on the user defined data file size (10GB default)
+- Data files are rotated based on the user defined data file size (2GB default)
 - A license that allowed for easy use
 - Data corruption crc check
+
+# Important notes
+- GoCask does not implement any buffer cache in-memory. Instead, it depends on the filesystem’s cache. Adjusting the caching characteristics of your filesystem can impact performance.
+- GoCask stores all keys in memory which means that your system needs to have enough RAM to store all of your keyspace
 
 # How to Use/Run
 There are two ways to use gocask
@@ -48,16 +52,14 @@ While the server is running you can interact with it via `gccli` binary:
  
 If you don't have go installed, you can go to [releases](https://github.com/aneshas/gocask/releases) download latest release and go through the same process as above.
 
-
 # Still to come
 Since the primary motivation for this repo was learning more about how db engines work and although it could already be used, it's far from production ready. With that being said, I do plan to maintain and extend it in the future.
 
 Some things that are on my mind:
-- Current key deletion is a soft delete (implement garbage collection of deleted keys)
-- Buffer writes
-- Use hint file to improve the startup time
-- Double down on tests (maybe fuzzing)
+- Current key deletion is a soft delete (implement merging and hint files)
+- Fold over keys
+- Double down on tests (fuzz?)
 - Add benchmarks
-- Support for multiple processes and locking
-- Making it distributed 
+- Support for multiple processes and write locking
+- Make it distributed 
 - An [eventstore](https://github.com/aneshas/eventstore) spin off (use gocask instead of sqlite)

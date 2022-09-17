@@ -18,7 +18,7 @@ func main() {
 	var (
 		dataDir = fs.String("datadir", "Directory where databases are stored (default ~/gcdata)", "", env.Named("DATADIR"))
 		dbName  = fs.String("db", "DB name to connect to", "default", env.Named("DBNAME"))
-		maxSize = fs.Int64("maxsize", "Max data file size in bytes (default 10GB)", 0, env.Named("MAX_DATA_FILE_SIZE"))
+		maxSize = fs.Int64("maxsize", "Max data file size in bytes (default 2GB)", 0, env.Named("MAX_DATA_FILE_SIZE"))
 		port    = fs.Int("port", "Server port", 8888, env.Named("PORT"))
 	)
 
