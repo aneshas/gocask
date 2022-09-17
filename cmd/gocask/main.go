@@ -7,8 +7,8 @@ import (
 	"github.com/aneshas/flags/env"
 	"github.com/aneshas/gocask"
 	"github.com/aneshas/gocask/rpc"
-	"github.com/labstack/echo/v4"
 	"log"
+	"net/http"
 	"os"
 )
 
@@ -34,21 +34,20 @@ func main() {
 		opts = append(opts, gocask.WithDataDir(*dataDir))
 	}
 
+	fmt.Printf("Opening %s database...", *dbName)
+
 	db, err := gocask.Open(*dbName, opts...)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	fmt.Println(" Done.")
+
 	twirpServer := rpc.NewGoCaskServer(&server{db})
 
-	e := echo.New()
+	fmt.Printf("Started GoCask server on localhost:%d\n", *port)
 
-	e.POST(fmt.Sprintf("%s*", twirpServer.PathPrefix()), func(c echo.Context) error {
-		twirpServer.ServeHTTP(c.Response(), c.Request())
-		return nil
-	})
-
-	log.Fatal(e.Start(fmt.Sprintf(":%d", *port)))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), twirpServer))
 }
 
 type server struct {

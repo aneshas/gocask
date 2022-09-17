@@ -56,10 +56,10 @@ If you don't have go installed, you can go to [releases](https://github.com/anes
 Since the primary motivation for this repo was learning more about how db engines work and although it could already be used, it's far from production ready. With that being said, I do plan to maintain and extend it in the future.
 
 Some things that are on my mind:
+- Support for multiple processes and write locking
 - Current key deletion is a soft delete (implement merging and hint files)
 - Fold over keys
 - Double down on tests (fuzz?)
 - Add benchmarks
-- Support for multiple processes and write locking
 - Make it distributed 
 - An [eventstore](https://github.com/aneshas/eventstore) spin off (use gocask instead of sqlite)
