@@ -58,6 +58,7 @@ Since the primary motivation for this repo was learning more about how db engine
 Some things that are on my mind:
 - Support for multiple processes and write locking
 - Current key deletion is a soft delete (implement merging and hint files)
+- key durability/expiry
 - Fold over keys
 - Double down on tests (fuzz?)
 - Add benchmarks
