@@ -9,7 +9,7 @@ Go implementation of Bitcask - A Log-Structured Hash Table for Fast Key / Value 
 A learning venture into database development.
 Special thanks go to the amazing [Ben Johnson](https://medium.com/@benbjohnson) for pointing me in the right direction and being as helpful as he was.
 
-# Features (as defined by the paper+)
+# Features
 - Low latency per item read or written
 - High throughput, especially when writing an incoming stream of random items
 - Ability to handle datasets much larger than RAM w/o degradation
