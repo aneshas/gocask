@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aneshas/gocask/pkg/cask"
+	"github.com/aneshas/gocask/core"
 	"github.com/aneshas/gocask/rpc"
 	"log"
 	"net/http"
@@ -42,7 +42,7 @@ func main() {
 			},
 		)
 		if err != nil {
-			if errors.Is(err, cask.ErrKeyNotFound) {
+			if errors.Is(err, core.ErrKeyNotFound) {
 				fmt.Println(err)
 				return
 			}

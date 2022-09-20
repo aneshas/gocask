@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	cask "github.com/aneshas/gocask/pkg/cask"
+	"github.com/aneshas/gocask/core"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -13,15 +13,15 @@ type FS struct {
 }
 
 // Open provides a mock function with given fields: _a0
-func (_m *FS) Open(_a0 string) (cask.File, error) {
+func (_m *FS) Open(_a0 string) (core.File, error) {
 	ret := _m.Called(_a0)
 
-	var r0 cask.File
-	if rf, ok := ret.Get(0).(func(string) cask.File); ok {
+	var r0 core.File
+	if rf, ok := ret.Get(0).(func(string) core.File); ok {
 		r0 = rf(_a0)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(cask.File)
+			r0 = ret.Get(0).(core.File)
 		}
 	}
 
@@ -57,15 +57,15 @@ func (_m *FS) ReadFileAt(_a0 string, _a1 string, _a2 []byte, _a3 int64) (int, er
 }
 
 // Rotate provides a mock function with given fields: _a0
-func (_m *FS) Rotate(_a0 string) (cask.File, error) {
+func (_m *FS) Rotate(_a0 string) (core.File, error) {
 	ret := _m.Called(_a0)
 
-	var r0 cask.File
-	if rf, ok := ret.Get(0).(func(string) cask.File); ok {
+	var r0 core.File
+	if rf, ok := ret.Get(0).(func(string) core.File); ok {
 		r0 = rf(_a0)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(cask.File)
+			r0 = ret.Get(0).(core.File)
 		}
 	}
 
@@ -80,11 +80,11 @@ func (_m *FS) Rotate(_a0 string) (cask.File, error) {
 }
 
 // Walk provides a mock function with given fields: _a0, _a1
-func (_m *FS) Walk(_a0 string, _a1 func(cask.File) error) error {
+func (_m *FS) Walk(_a0 string, _a1 func(core.File) error) error {
 	ret := _m.Called(_a0, _a1)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, func(cask.File) error) error); ok {
+	if rf, ok := ret.Get(0).(func(string, func(core.File) error) error); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)

@@ -2,8 +2,8 @@ package testutil
 
 import (
 	"bytes"
-	"github.com/aneshas/gocask/pkg/cask"
-	mocks2 "github.com/aneshas/gocask/pkg/cask/testutil/mocks"
+	"github.com/aneshas/gocask/core"
+	"github.com/aneshas/gocask/core/testutil/mocks"
 	"github.com/stretchr/testify/mock"
 	"io"
 	"testing"
@@ -11,13 +11,13 @@ import (
 
 // FS is a mock FS
 type FS struct {
-	*mocks2.FS
+	*mocks.FS
 
 	mockFiles      map[string][]byte
 	mockFilesOrder []string
 
-	file    *mocks2.File
-	newFile *mocks2.File
+	file    *mocks.File
+	newFile *mocks.File
 
 	Path     string
 	DataFile string
@@ -26,7 +26,7 @@ type FS struct {
 // NewFS creates new mock FS
 func NewFS() *FS {
 	return &FS{
-		FS:        &mocks2.FS{},
+		FS:        &mocks.FS{},
 		Path:      "path/to/db",
 		DataFile:  "data",
 		mockFiles: make(map[string][]byte),
@@ -50,7 +50,7 @@ func (fs *FS) WithMockValue(val []byte) *FS {
 
 // WithMockWriteSupport setup
 func (fs *FS) WithMockWriteSupport() *FS {
-	var file mocks2.File
+	var file mocks.File
 
 	file.On("Name").Return(fs.DataFile)
 	file.On("Write", mock.Anything).Return(0, nil)
@@ -67,7 +67,7 @@ func (fs *FS) WithMockWriteSupport() *FS {
 
 // WithToppedUpDataFile setup
 func (fs *FS) WithToppedUpDataFile(atSize int64) *FS {
-	var file mocks2.File
+	var file mocks.File
 
 	file.On("Name").Return(fs.DataFile)
 	file.On("Close").Return(nil)
@@ -76,7 +76,7 @@ func (fs *FS) WithToppedUpDataFile(atSize int64) *FS {
 	fs.On("Open", fs.Path).Return(&file, nil)
 	fs.On("Walk", fs.Path, mock.Anything).Return(nil)
 
-	var newFile mocks2.File
+	var newFile mocks.File
 
 	newFile.On("Name").Return("new-data-file")
 	newFile.On("Close").Return(nil)
@@ -103,7 +103,7 @@ func (fs *FS) VerifyWriteGoesToNewlyActiveDataFile(t *testing.T) {
 
 // WithFailWithErrOnWrite setup
 func (fs *FS) WithFailWithErrOnWrite(err error) *FS {
-	var file mocks2.File
+	var file mocks.File
 
 	file.On("Name").Return(fs.DataFile)
 	file.On("Write", mock.Anything).Return(0, err)
@@ -143,7 +143,7 @@ func (fs *FS) AddMockDataFileEntry(fName string, entry []byte) {
 func (fs *FS) UseMockDataFiles() *FS {
 	fs.On("Walk", fs.Path, mock.Anything).
 		Run(func(args mock.Arguments) {
-			f := args[1].(func(cask.File) error)
+			f := args[1].(func(core.File) error)
 
 			for _, name := range fs.mockFilesOrder {
 				_ = f(&echoFile{
@@ -154,7 +154,7 @@ func (fs *FS) UseMockDataFiles() *FS {
 		}).
 		Return(nil)
 
-	var file mocks2.File
+	var file mocks.File
 
 	file.On("Name").Return(fs.DataFile)
 	file.On("Write", mock.Anything).Return(0, nil)

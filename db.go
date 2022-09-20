@@ -1,8 +1,8 @@
 package gocask
 
 import (
+	"github.com/aneshas/gocask/core"
 	"github.com/aneshas/gocask/internal/fs"
-	"github.com/aneshas/gocask/pkg/cask"
 	"os"
 	"path"
 	"time"
@@ -22,23 +22,16 @@ const (
 	TB = GB * 1024
 )
 
-// DB represents gocask
-// A Log-Structured Hash Table for Fast Key/Value Data
-// Based on https://riak.com/assets/bitcask-intro.pdf
-type DB struct {
-	*cask.DB
-}
-
 // Open opens an existing database at dbPath or creates a new one
 // The database location can be configured with config options and the default is ~/gcdata
 // Magic in:mem:db value for dbPath can be used in order to instantiate an in memory file system
-// which can be used for testing purposes
-func Open(dbPath string, opts ...Option) (*DB, error) {
-	var caskFS cask.FS
+// which can be used for testing purposes.
+func Open(dbPath string, opts ...Option) (*core.DB, error) {
+	var caskFS core.FS
 
 	caskFS = fs.NewDisk()
 
-	if dbPath == cask.InMemoryDB {
+	if dbPath == core.InMemoryDB {
 		caskFS = fs.NewInMemory()
 	}
 
@@ -49,7 +42,7 @@ func Open(dbPath string, opts ...Option) (*DB, error) {
 		return nil, err
 	}
 
-	cfg := cask.Config{
+	cfg := core.Config{
 		MaxDataFileSize: 10 * GB,
 		DataDir:         path.Join(home, "gcdata"),
 	}
@@ -58,23 +51,21 @@ func Open(dbPath string, opts ...Option) (*DB, error) {
 		cfg = opt(cfg)
 	}
 
-	db, err := cask.NewDB(dbPath, caskFS, t, cfg)
+	db, err := core.NewDB(dbPath, caskFS, t, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	return &DB{
-		db,
-	}, nil
+	return db, nil
 }
 
 // Option represents gocask configuration option
-type Option func(config cask.Config) cask.Config
+type Option func(config core.Config) core.Config
 
 // WithMaxDataFileSize configures maximum data file size after which
 // data files will be rotated
 func WithMaxDataFileSize(bytes int64) Option {
-	return func(config cask.Config) cask.Config {
+	return func(config core.Config) core.Config {
 		config.MaxDataFileSize = bytes
 
 		return config
@@ -83,7 +74,7 @@ func WithMaxDataFileSize(bytes int64) Option {
 
 // WithDataDir configures the location of the data dir where your databases will reside
 func WithDataDir(path string) Option {
-	return func(config cask.Config) cask.Config {
+	return func(config core.Config) core.Config {
 		config.DataDir = path
 
 		return config

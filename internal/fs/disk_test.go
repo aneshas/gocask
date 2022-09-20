@@ -3,8 +3,8 @@ package fs_test
 import (
 	"errors"
 	"fmt"
+	"github.com/aneshas/gocask/core"
 	"github.com/aneshas/gocask/internal/fs"
-	"github.com/aneshas/gocask/pkg/cask"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path"
@@ -73,7 +73,7 @@ func TestDiskFS_Should_Walk_Cask_Data_Files(t *testing.T) {
 
 	var files []string
 
-	err := disk.Walk("testdata/largedb", func(file cask.File) error {
+	err := disk.Walk("testdata/largedb", func(file core.File) error {
 		files = append(files, file.Name())
 
 		return nil
@@ -89,7 +89,7 @@ func TestDiskFS_Walk_Reports_WalkFn_Error(t *testing.T) {
 	wantErr := errors.New("an error")
 	disk := fs.NewDisk()
 
-	err := disk.Walk("testdata/largedb", func(file cask.File) error {
+	err := disk.Walk("testdata/largedb", func(file core.File) error {
 		return wantErr
 	})
 

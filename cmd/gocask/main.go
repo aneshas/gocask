@@ -6,6 +6,7 @@ import (
 	"github.com/aneshas/flags"
 	"github.com/aneshas/flags/env"
 	"github.com/aneshas/gocask"
+	"github.com/aneshas/gocask/core"
 	"github.com/aneshas/gocask/rpc"
 	"log"
 	"net/http"
@@ -51,7 +52,7 @@ func main() {
 }
 
 type server struct {
-	db *gocask.DB
+	db *core.DB
 }
 
 // Put a value

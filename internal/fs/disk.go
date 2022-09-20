@@ -3,7 +3,7 @@ package fs
 import (
 	"errors"
 	"fmt"
-	"github.com/aneshas/gocask/pkg/cask"
+	"github.com/aneshas/gocask/core"
 	gofs "io/fs"
 	"os"
 	gopath "path"
@@ -47,7 +47,7 @@ func NewDisk() *Disk {
 type Disk struct{}
 
 // Open opens a default data file for reading and creates it if it does not exist
-func (fs *Disk) Open(path string) (cask.File, error) {
+func (fs *Disk) Open(path string) (core.File, error) {
 	err := fs.createDir(path)
 	if err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func (fs *Disk) Open(path string) (cask.File, error) {
 }
 
 // Rotate creates a new active data file and opens it
-func (fs *Disk) Rotate(path string) (cask.File, error) {
+func (fs *Disk) Rotate(path string) (core.File, error) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func (fs *Disk) Rotate(path string) (cask.File, error) {
 	return fs.openFile(path, "", len(entries))
 }
 
-func (fs *Disk) openFile(path string, dataFile string, n int) (cask.File, error) {
+func (fs *Disk) openFile(path string, dataFile string, n int) (core.File, error) {
 	if dataFile == "" {
 		dataFile = fmt.Sprintf("data_%d_%d.csk", n, time.Now().Unix())
 	}
@@ -119,7 +119,7 @@ func (fs *Disk) createDir(path string) error {
 	return nil
 }
 
-func (fs *Disk) Walk(path string, wf func(cask.File) error) error {
+func (fs *Disk) Walk(path string, wf func(core.File) error) error {
 	return filepath.Walk(path, func(p string, info gofs.FileInfo, err error) error {
 		if info.IsDir() || gopath.Ext(p) != ".csk" {
 			return nil

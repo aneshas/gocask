@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/aneshas/gocask"
-	"github.com/aneshas/gocask/pkg/cask"
+	"github.com/aneshas/gocask/core"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path"
@@ -14,7 +14,7 @@ import (
 )
 
 func TestInMemory_DB_Should_Store_And_Retrieve_A_Set_Of_Key_Val_Pairs(t *testing.T) {
-	db, _ := gocask.Open(cask.InMemoryDB)
+	db, _ := gocask.Open(core.InMemoryDB)
 	defer db.Close()
 
 	writeReadAndAssert(t, db)
@@ -36,7 +36,7 @@ func TestDisk_DB_Should_Store_And_Retrieve_A_Set_Of_Key_Val_Pairs(t *testing.T) 
 	writeReadAndAssert(t, db)
 }
 
-func writeReadAndAssert(t *testing.T, db *gocask.DB) {
+func writeReadAndAssert(t *testing.T, db *core.DB) {
 	file, err := os.Open("testdata/data.txt")
 
 	assert.NoError(t, err)

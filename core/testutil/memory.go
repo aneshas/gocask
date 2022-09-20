@@ -3,11 +3,11 @@ package testutil
 import (
 	"bytes"
 	"fmt"
-	"github.com/aneshas/gocask/pkg/cask"
+	"github.com/aneshas/gocask/core"
 )
 
 type InMemoryFile struct {
-	file cask.File
+	file core.File
 	fs   *InMemory
 }
 
@@ -41,17 +41,17 @@ func (i *InMemoryFile) Size() int64 {
 }
 
 type InMemory struct {
-	fs    cask.FS
+	fs    core.FS
 	pwKey []byte
 }
 
-func NewInMemory(fs cask.FS) *InMemory {
+func NewInMemory(fs core.FS) *InMemory {
 	return &InMemory{
 		fs: fs,
 	}
 }
 
-func (i *InMemory) Open(path string) (cask.File, error) {
+func (i *InMemory) Open(path string) (core.File, error) {
 	f, err := i.fs.Open(path)
 	if err != nil {
 		return nil, err
@@ -63,11 +63,11 @@ func (i *InMemory) Open(path string) (cask.File, error) {
 	}, nil
 }
 
-func (i *InMemory) Rotate(path string) (cask.File, error) {
+func (i *InMemory) Rotate(path string) (core.File, error) {
 	return i.Rotate(path)
 }
 
-func (i *InMemory) Walk(path string, f func(cask.File) error) error {
+func (i *InMemory) Walk(path string, f func(core.File) error) error {
 	return i.fs.Walk(path, f)
 }
 

@@ -2,7 +2,7 @@ package fs
 
 import (
 	"bytes"
-	"github.com/aneshas/gocask/pkg/cask"
+	"github.com/aneshas/gocask/core"
 	"io"
 )
 
@@ -43,7 +43,7 @@ func NewInMemory() *InMemory {
 	return &InMemory{}
 }
 
-func (i *InMemory) Open(_ string) (cask.File, error) {
+func (i *InMemory) Open(_ string) (core.File, error) {
 	i.currentFile = &InMemoryFile{
 		name:   "data",
 		reader: bytes.NewReader(i.b),
@@ -55,11 +55,11 @@ func (i *InMemory) Open(_ string) (cask.File, error) {
 	return i.currentFile, nil
 }
 
-func (i *InMemory) Rotate(_ string) (cask.File, error) {
+func (i *InMemory) Rotate(_ string) (core.File, error) {
 	return i.currentFile, nil
 }
 
-func (i *InMemory) Walk(_ string, f func(cask.File) error) error {
+func (i *InMemory) Walk(_ string, f func(core.File) error) error {
 	file := &InMemoryFile{
 		name:   "data",
 		reader: bytes.NewReader(i.b),

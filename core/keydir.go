@@ -1,4 +1,4 @@
-package cask
+package core
 
 type kdEntry struct {
 	CRC       uint32

@@ -1,4 +1,4 @@
-package cask
+package core
 
 import (
 	"encoding/binary"

@@ -1,8 +1,8 @@
 package fs_test
 
 import (
+	"github.com/aneshas/gocask/core"
 	"github.com/aneshas/gocask/internal/fs"
-	"github.com/aneshas/gocask/pkg/cask"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -57,7 +57,7 @@ func TestWalk_Walks_Over_Single_Data_File(t *testing.T) {
 
 	_, _ = f.Write(b)
 
-	err := mem.Walk("", func(file cask.File) error {
+	err := mem.Walk("", func(file core.File) error {
 		gotB := make([]byte, len(b))
 
 		n, err := file.Read(gotB)

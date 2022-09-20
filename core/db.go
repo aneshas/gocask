@@ -1,4 +1,4 @@
-package cask
+package core
 
 import (
 	"bufio"
@@ -61,7 +61,9 @@ type Time interface {
 	NowUnix() uint32
 }
 
-// DB represents bitcask db implementation
+// DB represents a bitcask database
+// A Log-Structured Hash Table for Fast Key/Value Data
+// Based on https://riak.com/assets/bitcask-intro.pdf
 type DB struct {
 	cfg  Config
 	time Time

@@ -1,11 +1,11 @@
-package cask_test
+package core_test
 
 import (
 	"errors"
 	"fmt"
+	"github.com/aneshas/gocask/core"
+	testutil2 "github.com/aneshas/gocask/core/testutil"
 	caskfs "github.com/aneshas/gocask/internal/fs"
-	"github.com/aneshas/gocask/pkg/cask"
-	"github.com/aneshas/gocask/pkg/cask/testutil"
 	"github.com/stretchr/testify/assert"
 	"os"
 	gopath "path"
@@ -42,11 +42,11 @@ func TestShould_Successfully_Store_Values(t *testing.T) {
 		},
 	}
 
-	fs := testutil.NewFS().WithMockWriteSupport()
+	fs := testutil2.NewFS().WithMockWriteSupport()
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("put %s", tc.key), func(t *testing.T) {
-			db, err := cask.NewDB(fs.Path, fs, testutil.Time(tc.now), cask.DefaultConfig)
+			db, err := core.NewDB(fs.Path, fs, testutil2.Time(tc.now), core.DefaultConfig)
 
 			assert.NoError(t, err)
 
@@ -57,7 +57,7 @@ func TestShould_Successfully_Store_Values(t *testing.T) {
 
 			assert.NoError(t, err)
 
-			fs.VerifyEntryWritten(t, testutil.Entry(tc.now, key, val))
+			fs.VerifyEntryWritten(t, testutil2.Entry(tc.now, key, val))
 
 			assert.NoError(t, db.Close())
 		})
@@ -77,7 +77,7 @@ func TestShould_Fetch_Previously_Saved_Value_On_Disk(t *testing.T) {
 	saveAndFetch(t, dbName, caskfs.NewDisk())
 }
 
-func saveAndFetch(t *testing.T, dbPath string, fs cask.FS) {
+func saveAndFetch(t *testing.T, dbPath string, fs core.FS) {
 	cases := []struct {
 		key string
 		val string
@@ -115,11 +115,11 @@ func saveAndFetch(t *testing.T, dbPath string, fs cask.FS) {
 			key := []byte(tc.key)
 			val := []byte(tc.val)
 
-			config := cask.DefaultConfig
+			config := core.DefaultConfig
 
 			config.DataDir = os.TempDir()
 
-			db, _ := cask.NewDB(dbPath, fs, testutil.Time(tc.now), config)
+			db, _ := core.NewDB(dbPath, fs, testutil2.Time(tc.now), config)
 
 			err := db.Put(key, val)
 
@@ -252,18 +252,18 @@ func TestShould_Fetch_Existing_Values_After_Startup(t *testing.T) {
 		},
 	}
 
-	fs := testutil.NewFS().UseMockDataFiles()
+	fs := testutil2.NewFS().UseMockDataFiles()
 
 	for _, tc := range seed {
 		fs.AddMockDataFileEntry(
 			tc.file,
-			testutil.Entry(tc.now, []byte(tc.key), []byte(tc.val)),
+			testutil2.Entry(tc.now, []byte(tc.key), []byte(tc.val)),
 		)
 	}
 
-	var time testutil.Time
+	var time testutil2.Time
 
-	db, _ := cask.NewDB(fs.Path, fs, time, cask.DefaultConfig)
+	db, _ := core.NewDB(fs.Path, fs, time, core.DefaultConfig)
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("get %s", tc.key), func(t *testing.T) {
@@ -325,18 +325,18 @@ func TestShould_Fetch_Updated_Values_From_Different_Files(t *testing.T) {
 		},
 	}
 
-	fs := testutil.NewFS().UseMockDataFiles()
+	fs := testutil2.NewFS().UseMockDataFiles()
 
 	for _, tc := range seed {
 		fs.AddMockDataFileEntry(
 			tc.file,
-			testutil.Entry(tc.now, []byte(tc.key), []byte(tc.val)),
+			testutil2.Entry(tc.now, []byte(tc.key), []byte(tc.val)),
 		)
 	}
 
-	var time testutil.Time
+	var time testutil2.Time
 
-	db, _ := cask.NewDB(fs.Path, fs, time, cask.DefaultConfig)
+	db, _ := core.NewDB(fs.Path, fs, time, core.DefaultConfig)
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("get %s", tc.key), func(t *testing.T) {
@@ -354,9 +354,9 @@ func TestShould_Fetch_Updated_Values_From_Different_Files(t *testing.T) {
 func TestShould_Not_Be_Able_To_Retrieve_Deleted_Key(t *testing.T) {
 	fs := caskfs.NewInMemory()
 
-	var time testutil.Time
+	var time testutil2.Time
 
-	db, _ := cask.NewDB("", fs, time, cask.DefaultConfig)
+	db, _ := core.NewDB("", fs, time, core.DefaultConfig)
 
 	key := []byte("foo")
 	val := []byte("bar")
@@ -369,15 +369,15 @@ func TestShould_Not_Be_Able_To_Retrieve_Deleted_Key(t *testing.T) {
 
 	_, err = db.Get(key)
 
-	assert.ErrorIs(t, err, cask.ErrKeyNotFound)
+	assert.ErrorIs(t, err, core.ErrKeyNotFound)
 }
 
 func TestShould_Not_Be_Able_To_Retrieve_Deleted_Key_After_Startup(t *testing.T) {
 	fs := caskfs.NewInMemory()
 
-	var time testutil.Time
+	var time testutil2.Time
 
-	db, _ := cask.NewDB("", fs, time, cask.DefaultConfig)
+	db, _ := core.NewDB("", fs, time, core.DefaultConfig)
 
 	key := []byte("foo")
 	val := []byte("bar")
@@ -385,19 +385,19 @@ func TestShould_Not_Be_Able_To_Retrieve_Deleted_Key_After_Startup(t *testing.T) 
 	_ = db.Put(key, val)
 	_ = db.Delete(key)
 
-	db, _ = cask.NewDB("", fs, time, cask.DefaultConfig)
+	db, _ = core.NewDB("", fs, time, core.DefaultConfig)
 
 	_, err := db.Get(key)
 
-	assert.ErrorIs(t, err, cask.ErrKeyNotFound)
+	assert.ErrorIs(t, err, core.ErrKeyNotFound)
 }
 
 func TestShould_Be_Able_To_Reset_Deleted_Key(t *testing.T) {
 	fs := caskfs.NewInMemory()
 
-	var time testutil.Time
+	var time testutil2.Time
 
-	db, _ := cask.NewDB("", fs, time, cask.DefaultConfig)
+	db, _ := core.NewDB("", fs, time, core.DefaultConfig)
 
 	key := []byte("foo")
 	val := []byte("bar")
@@ -416,13 +416,13 @@ func TestShould_Be_Able_To_Reset_Deleted_Key(t *testing.T) {
 func TestShould_Report_KeyNotFound_When_Deleting_Non_Existent_Key(t *testing.T) {
 	fs := caskfs.NewInMemory()
 
-	var time testutil.Time
+	var time testutil2.Time
 
-	db, _ := cask.NewDB("", fs, time, cask.DefaultConfig)
+	db, _ := core.NewDB("", fs, time, core.DefaultConfig)
 
 	err := db.Delete([]byte("i-dont-exist"))
 
-	assert.ErrorIs(t, err, cask.ErrKeyNotFound)
+	assert.ErrorIs(t, err, core.ErrKeyNotFound)
 }
 
 func TestShould_Fetch_All_Keys(t *testing.T) {
@@ -448,18 +448,18 @@ func TestShould_Fetch_All_Keys(t *testing.T) {
 		},
 	}
 
-	fs := testutil.NewFS().UseMockDataFiles()
+	fs := testutil2.NewFS().UseMockDataFiles()
 
 	for _, tc := range seed {
 		fs.AddMockDataFileEntry(
 			tc.file,
-			testutil.Entry(123, []byte(tc.key), []byte("val")),
+			testutil2.Entry(123, []byte(tc.key), []byte("val")),
 		)
 	}
 
-	var time testutil.Time
+	var time testutil2.Time
 
-	db, _ := cask.NewDB(fs.Path, fs, time, cask.DefaultConfig)
+	db, _ := core.NewDB(fs.Path, fs, time, core.DefaultConfig)
 
 	wantKeys := []string{"foo", "bar", "foobar", "baz"}
 	gotKeys := db.Keys()
@@ -471,9 +471,9 @@ func TestShould_Fetch_All_Keys(t *testing.T) {
 }
 
 func TestShould_Return_Empty_Keys_Slice_For_Empty_DB(t *testing.T) {
-	var time testutil.Time
+	var time testutil2.Time
 
-	db, _ := cask.NewDB("", caskfs.NewInMemory(), time, cask.DefaultConfig)
+	db, _ := core.NewDB("", caskfs.NewInMemory(), time, core.DefaultConfig)
 
 	assert.Equal(t, []string{}, db.Keys())
 }
@@ -481,11 +481,11 @@ func TestShould_Return_Empty_Keys_Slice_For_Empty_DB(t *testing.T) {
 func TestRotate_Data_Files_When_Threshold_Size_Is_Exceeded(t *testing.T) {
 	currDataFileSizeB := int64(65530)
 
-	fs := testutil.NewFS().WithToppedUpDataFile(currDataFileSizeB)
+	fs := testutil2.NewFS().WithToppedUpDataFile(currDataFileSizeB)
 
-	var time testutil.Time
+	var time testutil2.Time
 
-	db, _ := cask.NewDB(fs.Path, fs, time, cask.Config{
+	db, _ := core.NewDB(fs.Path, fs, time, core.Config{
 		MaxDataFileSize: 65546,
 	})
 
@@ -503,9 +503,9 @@ func TestShould_Fetch_Value_From_Rotated_File(t *testing.T) {
 
 	defer os.RemoveAll(dbPath)
 
-	var time testutil.Time
+	var time testutil2.Time
 
-	db, _ := cask.NewDB(dbPath, caskfs.NewDisk(), time, cask.Config{
+	db, _ := core.NewDB(dbPath, caskfs.NewDisk(), time, core.Config{
 		MaxDataFileSize: 20,
 	})
 
@@ -547,11 +547,11 @@ func aValue(n int, b byte) []byte {
 func TestPut_Should_Report_Failed_Write_Error(t *testing.T) {
 	wantErr := errors.New("an error")
 
-	fs := testutil.NewFS().WithFailWithErrOnWrite(wantErr)
+	fs := testutil2.NewFS().WithFailWithErrOnWrite(wantErr)
 
-	var time testutil.Time
+	var time testutil2.Time
 
-	db, _ := cask.NewDB(fs.Path, fs, time, cask.DefaultConfig)
+	db, _ := core.NewDB(fs.Path, fs, time, core.DefaultConfig)
 
 	err := db.Put([]byte("key"), []byte("val"))
 
@@ -559,33 +559,33 @@ func TestPut_Should_Report_Failed_Write_Error(t *testing.T) {
 }
 
 func TestPut_Should_Report_Typed_Key_Not_Found_Error(t *testing.T) {
-	fs := testutil.NewFS().WithMockWriteSupport()
+	fs := testutil2.NewFS().WithMockWriteSupport()
 
-	var time testutil.Time
+	var time testutil2.Time
 
-	db, _ := cask.NewDB(fs.Path, fs, time, cask.DefaultConfig)
+	db, _ := core.NewDB(fs.Path, fs, time, core.DefaultConfig)
 
 	_, err := db.Get([]byte("foo"))
 
-	assert.ErrorIs(t, err, cask.ErrKeyNotFound)
+	assert.ErrorIs(t, err, core.ErrKeyNotFound)
 }
 
 func TestPut_Should_Report_File_Read_Error_For_Existing_Key(t *testing.T) {
 	key := []byte("foo")
 	wantErr := errors.New("an error")
 
-	fs := testutil.NewFS().
+	fs := testutil2.NewFS().
 		WithFailOnReadValueFromFile(wantErr).
 		UseMockDataFiles()
 
 	fs.AddMockDataFileEntry(
 		"data",
-		testutil.Entry(123, key, []byte("value")),
+		testutil2.Entry(123, key, []byte("value")),
 	)
 
-	var time testutil.Time
+	var time testutil2.Time
 
-	db, _ := cask.NewDB(fs.Path, fs, time, cask.DefaultConfig)
+	db, _ := core.NewDB(fs.Path, fs, time, core.DefaultConfig)
 
 	_, err := db.Get(key)
 
@@ -593,18 +593,17 @@ func TestPut_Should_Report_File_Read_Error_For_Existing_Key(t *testing.T) {
 }
 
 func TestShould_Tolerate_Partial_Write_On_Put(t *testing.T) {
-	var time testutil.Time
+	var time testutil2.Time
 
 	key := []byte("key")
 	val := []byte("foobarbaz")
 
 	path := "mydb"
 
-	fs := testutil.
-		NewInMemory(caskfs.NewInMemory()).
+	fs := testutil2.NewInMemory(caskfs.NewInMemory()).
 		WithPartialWriteFor(key)
 
-	db, _ := cask.NewDB(path, fs, time, cask.DefaultConfig)
+	db, _ := core.NewDB(path, fs, time, core.DefaultConfig)
 
 	err := db.Put([]byte("user"), []byte("user123456"))
 
@@ -612,7 +611,7 @@ func TestShould_Tolerate_Partial_Write_On_Put(t *testing.T) {
 
 	err = db.Put(key, val)
 
-	assert.ErrorIs(t, err, cask.ErrPartialWrite)
+	assert.ErrorIs(t, err, core.ErrPartialWrite)
 
 	wantKey := []byte("ishould")
 	wantVal := []byte("befine")
@@ -628,7 +627,7 @@ func TestShould_Tolerate_Partial_Write_On_Put(t *testing.T) {
 }
 
 func TestShould_Tolerate_Partial_Write_On_Delete(t *testing.T) {
-	var time testutil.Time
+	var time testutil2.Time
 
 	key := []byte("key")
 	val := []byte("foobarbaz")
@@ -637,7 +636,7 @@ func TestShould_Tolerate_Partial_Write_On_Delete(t *testing.T) {
 
 	inMem := caskfs.NewInMemory()
 
-	db, err := cask.NewDB(path, inMem, time, cask.DefaultConfig)
+	db, err := core.NewDB(path, inMem, time, core.DefaultConfig)
 
 	assert.NoError(t, err)
 
@@ -645,13 +644,12 @@ func TestShould_Tolerate_Partial_Write_On_Delete(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	db, _ = cask.NewDB(path, testutil.
-		NewInMemory(inMem).
-		WithPartialWriteFor(key), time, cask.DefaultConfig)
+	db, _ = core.NewDB(path, testutil2.NewInMemory(inMem).
+		WithPartialWriteFor(key), time, core.DefaultConfig)
 
 	err = db.Delete(key)
 
-	assert.ErrorIs(t, err, cask.ErrPartialWrite)
+	assert.ErrorIs(t, err, core.ErrPartialWrite)
 
 	wantKey := []byte("ishould")
 	wantVal := []byte("befine")
@@ -681,15 +679,15 @@ func validateKey(t *testing.T, key []byte) {
 
 	_, err := db.Get(key)
 
-	assert.ErrorIs(t, err, cask.ErrInvalidKey)
+	assert.ErrorIs(t, err, core.ErrInvalidKey)
 
 	err = db.Put(key, []byte("foo"))
 
-	assert.ErrorIs(t, err, cask.ErrInvalidKey)
+	assert.ErrorIs(t, err, core.ErrInvalidKey)
 
 	err = db.Delete(key)
 
-	assert.ErrorIs(t, err, cask.ErrInvalidKey)
+	assert.ErrorIs(t, err, core.ErrInvalidKey)
 }
 
 func TestShould_Validate_Nil_Value(t *testing.T) {
@@ -699,17 +697,17 @@ func TestShould_Validate_Nil_Value(t *testing.T) {
 
 	err := db.Put([]byte("foo"), nil)
 
-	assert.ErrorIs(t, err, cask.ErrInvalidValue)
+	assert.ErrorIs(t, err, core.ErrInvalidValue)
 }
 
-func getInMemDB(t *testing.T) *cask.DB {
-	var time testutil.Time
+func getInMemDB(t *testing.T) *core.DB {
+	var time testutil2.Time
 
 	path := "mydb"
 
 	inMem := caskfs.NewInMemory()
 
-	db, err := cask.NewDB(path, inMem, time, cask.DefaultConfig)
+	db, err := core.NewDB(path, inMem, time, core.DefaultConfig)
 
 	assert.NoError(t, err)
 
@@ -717,13 +715,13 @@ func getInMemDB(t *testing.T) *cask.DB {
 }
 
 func TestShould_Fail_CRC_Check(t *testing.T) {
-	fs := testutil.NewFS().
+	fs := testutil2.NewFS().
 		WithMockWriteSupport().
 		WithMockValue([]byte("corrupted"))
 
-	var time testutil.Time
+	var time testutil2.Time
 
-	db, _ := cask.NewDB(fs.Path, fs, time, cask.DefaultConfig)
+	db, _ := core.NewDB(fs.Path, fs, time, core.DefaultConfig)
 
 	key := []byte("foo")
 	val := []byte("uncorrupted")
@@ -734,6 +732,6 @@ func TestShould_Fail_CRC_Check(t *testing.T) {
 
 	got, err := db.Get(key)
 
-	assert.ErrorIs(t, err, cask.ErrCRCFailed)
+	assert.ErrorIs(t, err, core.ErrCRCFailed)
 	assert.Nil(t, got)
 }
