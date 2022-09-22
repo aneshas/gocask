@@ -25,13 +25,15 @@ func TestDiskFS_Should_Create_New_DB(t *testing.T) {
 
 	db, err := os.MkdirTemp("", "newdb")
 
+	defer os.RemoveAll(db)
+
 	assert.NoError(t, err)
+
+	db = fmt.Sprintf("%s/foodb", db)
 
 	file, err := disk.Open(db)
 
 	assert.NoError(t, err)
-
-	defer os.RemoveAll(db)
 
 	assert.NotNil(t, file)
 	assert.DirExists(t, db)
@@ -138,6 +140,40 @@ func TestDiskFS_Should_Report_Out_Of_Bounds_Read(t *testing.T) {
 	data := make([]byte, count)
 
 	_, err := disk.ReadFileAt("testdata/readdb", "data-0001", data, 100)
+
+	assert.Error(t, err)
+}
+
+func TestShould_Read_File_Size(t *testing.T) {
+	disk := fs.NewDisk()
+
+	f, _ := disk.Open("./testdata/sizedb")
+
+	assert.Equal(t, int64(13), f.Size())
+}
+
+func TestFile_Write_Should_Should_Update_File_Size(t *testing.T) {
+	disk := fs.NewDisk()
+
+	db, _ := os.MkdirTemp("", "db0003")
+
+	defer os.RemoveAll(db)
+
+	f, _ := disk.Open(db)
+
+	assert.Equal(t, int64(0), f.Size())
+
+	data := []byte("foobar")
+
+	f.Write(data)
+
+	assert.Equal(t, int64(len(data)), f.Size())
+}
+
+func TestReadFileAt_Should_Report_Nonexistent_File_Error(t *testing.T) {
+	disk := fs.NewDisk()
+
+	_, err := disk.ReadFileAt("i-do-not", "exist", nil, 0)
 
 	assert.Error(t, err)
 }

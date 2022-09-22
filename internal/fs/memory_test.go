@@ -1,6 +1,7 @@
 package fs_test
 
 import (
+	"fmt"
 	"github.com/aneshas/gocask/core"
 	"github.com/aneshas/gocask/internal/fs"
 	"github.com/stretchr/testify/assert"
@@ -70,4 +71,25 @@ func TestWalk_Walks_Over_Single_Data_File(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
+}
+
+func TestShould_Return_DataFile_Name(t *testing.T) {
+	mem := fs.NewInMemory()
+
+	f, _ := mem.Open("")
+
+	assert.Equal(t, "data", f.Name())
+}
+
+func TestWalk_Should_Propagate_Error(t *testing.T) {
+	mem := fs.NewInMemory()
+	mem.Open("")
+
+	e := fmt.Errorf("an error")
+
+	err := mem.Walk("", func(_ core.File) error {
+		return e
+	})
+
+	assert.ErrorIs(t, e, err)
 }

@@ -221,12 +221,10 @@ func (db *DB) rotateDataFile(entrySz int64) error {
 		return err
 	}
 
-	file, err := db.fs.Rotate(db.path)
+	db.file, err = db.fs.Rotate(db.path)
 	if err != nil {
 		return err
 	}
-
-	db.file = file
 
 	db.kd.resetOffset()
 
@@ -236,13 +234,13 @@ func (db *DB) rotateDataFile(entrySz int64) error {
 // Delete deletes a key/value pair if it exists or reports key not found
 // error if the key does not exist
 func (db *DB) Delete(key []byte) error {
-	_, err := db.Get(key)
+	db.m.Lock()
+	defer db.m.Unlock()
+
+	_, err := db.get(key)
 	if err != nil && !errors.Is(err, ErrCRCFailed) {
 		return err
 	}
-
-	db.m.Lock()
-	defer db.m.Unlock()
 
 	h := newKVHeader(db.time.NowUnix(), nil, key)
 
@@ -287,12 +285,16 @@ func serializeEntry(h header, key, val []byte) []byte {
 
 // Get retrieves a value stored under given key
 func (db *DB) Get(key []byte) ([]byte, error) {
+	db.m.RLock()
+	defer db.m.RUnlock()
+
+	return db.get(key)
+}
+
+func (db *DB) get(key []byte) ([]byte, error) {
 	if len(key) == 0 {
 		return nil, ErrInvalidKey
 	}
-
-	db.m.RLock()
-	defer db.m.RUnlock()
 
 	ke, err := db.kd.get(string(key))
 	if err != nil {
