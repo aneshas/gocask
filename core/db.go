@@ -162,7 +162,7 @@ func (db *DB) readEntry(r *bufio.Reader, file string) error {
 	}
 
 	if h.isTombstone() {
-		db.kd.unset(string(key))
+		db.kd.unset(key)
 
 		return nil
 	}
@@ -172,7 +172,7 @@ func (db *DB) readEntry(r *bufio.Reader, file string) error {
 		return err
 	}
 
-	db.kd.set(string(key), h, file)
+	db.kd.set(key, h, file)
 
 	return err
 }
@@ -206,7 +206,7 @@ func (db *DB) Put(key, val []byte) error {
 		return err
 	}
 
-	db.kd.set(string(key), h, db.file.Name())
+	db.kd.set(key, h, db.file.Name())
 
 	return nil
 }
@@ -249,7 +249,7 @@ func (db *DB) Delete(key []byte) error {
 		return err
 	}
 
-	db.kd.unset(string(key))
+	db.kd.unset(key)
 
 	return nil
 }
@@ -296,7 +296,7 @@ func (db *DB) get(key []byte) ([]byte, error) {
 		return nil, ErrInvalidKey
 	}
 
-	ke, err := db.kd.get(string(key))
+	ke, err := db.kd.get(key)
 	if err != nil {
 		return nil, err
 	}

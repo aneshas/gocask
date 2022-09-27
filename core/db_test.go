@@ -425,7 +425,7 @@ func TestShould_Report_KeyNotFound_When_Deleting_Non_Existent_Key(t *testing.T) 
 	assert.ErrorIs(t, err, core.ErrKeyNotFound)
 }
 
-func TestShould_Fetch_All_Keys(t *testing.T) {
+func TestShould_Fetch_All_Keys_In_Order(t *testing.T) {
 	seed := []struct {
 		file string
 		key  string
@@ -462,6 +462,27 @@ func TestShould_Fetch_All_Keys(t *testing.T) {
 	db, _ := core.NewDB(fs.Path, fs, time, core.DefaultConfig)
 
 	wantKeys := []string{"foo", "bar", "foobar", "baz"}
+	gotKeys := db.Keys()
+
+	sort.Strings(gotKeys)
+	sort.Strings(wantKeys)
+
+	assert.Equal(t, wantKeys, gotKeys)
+}
+
+func TestShould_Not_Fetch_Removed_Keys(t *testing.T) {
+	fs := caskfs.NewInMemory()
+
+	var time testutil.Time
+
+	db, _ := core.NewDB("", fs, time, core.DefaultConfig)
+
+	db.Put([]byte("foo"), []byte("val"))
+	db.Put([]byte("baz"), []byte("val"))
+	db.Put([]byte("bar"), []byte("val"))
+	db.Delete([]byte("baz"))
+
+	wantKeys := []string{"foo", "bar"}
 	gotKeys := db.Keys()
 
 	sort.Strings(gotKeys)

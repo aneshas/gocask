@@ -19,7 +19,7 @@ func newKeyDir() *keyDir {
 	}
 }
 
-func (kd *keyDir) set(key string, h header, file string) {
+func (kd *keyDir) set(key []byte, h header, file string) {
 	entry := kdEntry{
 		CRC:       h.CRC,
 		ValuePos:  kd.lastOffset + h.entrySize() - h.ValueSize,
@@ -30,11 +30,11 @@ func (kd *keyDir) set(key string, h header, file string) {
 
 	kd.lastOffset = kd.lastOffset + h.entrySize()
 
-	kd.entries[key] = entry
+	kd.entries[string(key)] = entry
 }
 
-func (kd *keyDir) get(key string) (kdEntry, error) {
-	ke, ok := kd.entries[key]
+func (kd *keyDir) get(key []byte) (kdEntry, error) {
+	ke, ok := kd.entries[string(key)]
 	if !ok {
 		return kdEntry{}, ErrKeyNotFound
 	}
@@ -42,8 +42,8 @@ func (kd *keyDir) get(key string) (kdEntry, error) {
 	return ke, nil
 }
 
-func (kd *keyDir) unset(key string) {
-	delete(kd.entries, key)
+func (kd *keyDir) unset(key []byte) {
+	delete(kd.entries, string(key))
 
 	kd.lastOffset = kd.lastOffset + headerSize + uint32(len(key))
 }
@@ -57,6 +57,9 @@ func (kd *keyDir) advanceOffsetBy(n uint32) {
 }
 
 func (kd *keyDir) keys() []string {
+	// This duplicates all keys allocates a lot of memory potentially exhausting it - does it make sense?
+	// Stream values instead?
+
 	keys := []string{}
 
 	for key := range kd.entries {
