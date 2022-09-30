@@ -29,12 +29,6 @@ const (
 func Open(dbPath string, opts ...Option) (*core.DB, error) {
 	var caskFS core.FS
 
-	caskFS = fs.NewDisk()
-
-	if dbPath == core.InMemoryDB {
-		caskFS = fs.NewInMemory()
-	}
-
 	var t goTime
 
 	home, err := os.UserHomeDir()
@@ -50,6 +44,14 @@ func Open(dbPath string, opts ...Option) (*core.DB, error) {
 	for _, opt := range opts {
 		cfg = opt(cfg)
 	}
+
+	caskFS = fs.NewDisk()
+
+	if dbPath == core.InMemoryDB {
+		caskFS = fs.NewInMemory()
+	}
+
+	// Schedule compaction on this level and call db.Merge periodically
 
 	db, err := core.NewDB(dbPath, caskFS, t, cfg)
 	if err != nil {

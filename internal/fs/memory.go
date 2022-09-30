@@ -43,6 +43,14 @@ func NewInMemory() *InMemory {
 	return &InMemory{}
 }
 
+func (i *InMemory) Move(path string, src string, dst string) error {
+	panic("not implemented")
+}
+
+func (i *InMemory) OTruncate(_ string, _ string) (core.File, error) {
+	panic("not implemented")
+}
+
 func (i *InMemory) Open(_ string) (core.File, error) {
 	i.currentFile = &InMemoryFile{
 		name:   "data",

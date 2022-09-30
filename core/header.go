@@ -7,12 +7,22 @@ import (
 )
 
 var (
-	byteOrder  binary.ByteOrder = binary.LittleEndian
-	headerSize uint32           = 16
+	byteOrder      binary.ByteOrder = binary.LittleEndian
+	headerSize     uint32           = 16
+	hintHeaderSize uint32           = 20
 )
 
 type header struct {
 	CRC, Timestamp, KeySize, ValueSize uint32
+}
+
+func (h header) toHint(vpos uint32) hintHeader {
+	var hh hintHeader
+
+	hh.header = h
+	hh.ValuePos = vpos
+
+	return hh
 }
 
 func newKVHeader(t uint32, key, val []byte) header {
@@ -57,6 +67,29 @@ func (h header) isTombstone() bool {
 
 func parseHeader(r io.Reader) (header, error) {
 	h := header{}
+
+	return h, binary.Read(r, byteOrder, &h)
+}
+
+type hintHeader struct {
+	header
+	ValuePos uint32
+}
+
+func (h hintHeader) encode() []byte {
+	b := make([]byte, hintHeaderSize)
+
+	byteOrder.PutUint32(b[0:4], h.CRC)
+	byteOrder.PutUint32(b[4:8], h.Timestamp)
+	byteOrder.PutUint32(b[8:12], h.KeySize)
+	byteOrder.PutUint32(b[12:16], h.ValueSize)
+	byteOrder.PutUint32(b[16:], h.ValuePos)
+
+	return b
+}
+
+func parseHintHeader(r io.Reader) (hintHeader, error) {
+	h := hintHeader{}
 
 	return h, binary.Read(r, byteOrder, &h)
 }

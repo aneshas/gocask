@@ -64,7 +64,7 @@ func (fs *Disk) Open(path string) (core.File, error) {
 		dataFile = entries[len(entries)-1].Name()
 	}
 
-	return fs.openFile(path, dataFile, len(entries))
+	return fs.openDataFile(path, dataFile, len(entries))
 }
 
 // Rotate creates a new active data file and opens it
@@ -74,21 +74,27 @@ func (fs *Disk) Rotate(path string) (core.File, error) {
 		return nil, err
 	}
 
-	return fs.openFile(path, "", len(entries))
+	return fs.openDataFile(path, "", len(entries))
 }
 
-func (fs *Disk) openFile(path string, dataFile string, n int) (core.File, error) {
+func (fs *Disk) openDataFile(path string, dataFile string, n int) (core.File, error) {
 	if dataFile == "" {
-		dataFile = fmt.Sprintf("data_%d_%d.csk", n, time.Now().Unix())
+		dataFile = fmt.Sprintf("data_%d_%d%s", n, time.Now().Unix(), core.DataFileExt)
 	}
 
-	file, err := os.OpenFile(
-		gopath.Join(path, dataFile),
-		os.O_RDWR|os.O_CREATE|os.O_APPEND,
-		0755,
-	)
+	return fs.openFile(gopath.Join(path, dataFile), os.O_RDWR|os.O_CREATE|os.O_APPEND)
+}
+
+// OTruncate opens file and truncates it to zero size
+// If the file does not exist it will be created
+func (fs *Disk) OTruncate(path, file string) (core.File, error) {
+	return fs.openFile(gopath.Join(path, fs.toDataFile(file)), os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+}
+
+func (fs *Disk) openFile(dataFile string, flag int) (core.File, error) {
+	file, err := os.OpenFile(dataFile, flag, 0755)
 	if err != nil {
-		return nil, fmt.Errorf("could not open db: %w", err)
+		return nil, fmt.Errorf("could not open data file: %w", err)
 	}
 
 	info, err := file.Stat()
@@ -120,9 +126,21 @@ func (fs *Disk) createDir(path string) error {
 }
 
 func (fs *Disk) Walk(path string, wf func(core.File) error) error {
+	hints := make(map[string]bool)
+
 	return filepath.Walk(path, func(p string, info gofs.FileInfo, err error) error {
-		if info.IsDir() || gopath.Ext(p) != ".csk" {
+		if info.IsDir() ||
+			gopath.Ext(p) != core.DataFileExt ||
+			strings.Contains(p, core.TmpFileExt) {
 			return nil
+		}
+
+		if strings.Contains(p, core.HintFileExt) {
+			hints[strings.Replace(p, core.HintFileExt, "", 1)] = true
+		} else {
+			if _, ok := hints[strings.Replace(p, core.DataFileExt, "", 1)]; ok {
+				return nil
+			}
 		}
 
 		file, err := os.OpenFile(p, os.O_RDONLY, 0755)
@@ -145,7 +163,7 @@ func (fs *Disk) Walk(path string, wf func(core.File) error) error {
 }
 
 func (fs *Disk) ReadFileAt(path string, file string, b []byte, o int64) (int, error) {
-	f, err := os.OpenFile(gopath.Join(path, fmt.Sprintf("%s%s", file, ".csk")), os.O_RDONLY, 0755)
+	f, err := os.OpenFile(gopath.Join(path, fs.toDataFile(file)), os.O_RDONLY, 0755)
 	if err != nil {
 		return 0, err
 	}
@@ -156,4 +174,16 @@ func (fs *Disk) ReadFileAt(path string, file string, b []byte, o int64) (int, er
 	}
 
 	return n, f.Close()
+}
+
+// Move moves src to dst
+func (fs *Disk) Move(path string, src string, dst string) error {
+	return os.Rename(
+		gopath.Join(path, fs.toDataFile(src)),
+		gopath.Join(path, fs.toDataFile(dst)),
+	)
+}
+
+func (fs *Disk) toDataFile(name string) string {
+	return fmt.Sprintf("%s%s", name, core.DataFileExt)
 }

@@ -98,6 +98,52 @@ func TestDiskFS_Walk_Reports_WalkFn_Error(t *testing.T) {
 	assert.ErrorIs(t, err, wantErr)
 }
 
+func TestDiskFS_Walk_Should_Use_Hint_Files(t *testing.T) {
+	disk := fs.NewDisk()
+
+	var files []string
+
+	err := disk.Walk("testdata/hintsdb", func(file core.File) error {
+		files = append(files, file.Name())
+
+		return nil
+	})
+
+	wantFiles := []string{
+		"data_0_1664540335.a",
+		"data_1_1664540335.a",
+		"data_2_1664540335.a",
+		"data_3_1664540335.a",
+		"data_4_1664540335",
+	}
+
+	assert.NoError(t, err)
+	assert.Equal(t, wantFiles, files)
+}
+
+func TestDiskFS_Walk_Should_Ignore_Tmp_Files(t *testing.T) {
+	disk := fs.NewDisk()
+
+	var files []string
+
+	err := disk.Walk("testdata/tmpdb", func(file core.File) error {
+		files = append(files, file.Name())
+
+		return nil
+	})
+
+	wantFiles := []string{
+		"data_0_1664540335",
+		"data_1_1664540335",
+		"data_2_1664540335.a",
+		"data_3_1664540335.a",
+		"data_4_1664540335",
+	}
+
+	assert.NoError(t, err)
+	assert.Equal(t, wantFiles, files)
+}
+
 func TestDiskFS_Should_Read_File_Value_At_Offset(t *testing.T) {
 	cases := []struct {
 		val    string

@@ -1,11 +1,9 @@
 package core
 
 type kdEntry struct {
-	CRC       uint32
-	Timestamp uint32
-	ValuePos  uint32
-	ValueSize uint32
-	File      string
+	h        header
+	ValuePos uint32
+	File     string
 }
 
 type keyDir struct {
@@ -19,18 +17,47 @@ func newKeyDir() *keyDir {
 	}
 }
 
-func (kd *keyDir) set(key []byte, h header, file string) {
+func (kd *keyDir) mapEntries(file string, f func([]byte, *kdEntry) error) error {
+	var err error
+
+	for key, entry := range kd.entries {
+		if entry.File != file {
+			continue
+		}
+
+		err = f([]byte(key), &entry)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (kd *keyDir) set(key []byte, h header, file string) *kdEntry {
 	entry := kdEntry{
-		CRC:       h.CRC,
-		ValuePos:  kd.lastOffset + h.entrySize() - h.ValueSize,
-		ValueSize: h.ValueSize,
-		Timestamp: h.Timestamp,
-		File:      file,
+		h:        h,
+		ValuePos: kd.lastOffset + h.entrySize() - h.ValueSize,
+		File:     file,
 	}
 
 	kd.lastOffset = kd.lastOffset + h.entrySize()
 
 	kd.entries[string(key)] = entry
+
+	return &entry
+}
+
+func (kd *keyDir) setFromHint(key []byte, h hintHeader, file string) *kdEntry {
+	entry := kdEntry{
+		h:        h.header,
+		ValuePos: h.ValuePos,
+		File:     file,
+	}
+
+	kd.entries[string(key)] = entry
+
+	return &entry
 }
 
 func (kd *keyDir) get(key []byte) (kdEntry, error) {
@@ -67,4 +94,15 @@ func (kd *keyDir) keys() []string {
 	}
 
 	return keys
+}
+
+func (kd *keyDir) merge(other *keyDir) {
+	for key, entry := range other.entries {
+		newEntry := kd.entries[key]
+
+		newEntry.File = entry.File
+		newEntry.ValuePos = entry.ValuePos
+
+		kd.entries[key] = newEntry
+	}
 }

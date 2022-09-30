@@ -51,6 +51,14 @@ func NewInMemory(fs core.FS) *InMemory {
 	}
 }
 
+func (i *InMemory) Move(path string, src string, dst string) error {
+	panic("not implemented")
+}
+
+func (i *InMemory) OTruncate(_ string, _ string) (core.File, error) {
+	panic("not implemented")
+}
+
 func (i *InMemory) Open(path string) (core.File, error) {
 	f, err := i.fs.Open(path)
 	if err != nil {

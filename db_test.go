@@ -118,3 +118,91 @@ func benchDiskPut(b *testing.B, n int) {
 		}
 	}
 }
+
+var mergeCases = []struct {
+	key, val string
+}{
+	{
+		key: "foo",
+		val: "foo bar baz",
+	},
+	{
+		key: "john",
+		val: "doe foo bar baz",
+	},
+	{
+		key: "jane",
+		val: "doe foo bar baz jane",
+	},
+	{
+		key: "max",
+		val: "mustermann",
+	},
+}
+
+// Merge one file restart, should have all values
+// Delete entry, merge one file restart
+// Active file not merged
+
+// Thresholds - merge with low threshold, nothing should happen except for hint
+
+func TestMerge(t *testing.T) {
+	os.RemoveAll("./testdata/foodb")
+
+	db, _ := gocask.Open(
+		"foodb",
+		gocask.WithDataDir("./testdata"),
+		gocask.WithMaxDataFileSize(1024),
+	)
+
+	for i := 0; i < 100; i++ {
+		key := fmt.Sprintf("key_%d", i)
+		val := fmt.Sprintf("val_%d", i)
+
+		_ = db.Put([]byte(key), []byte(val))
+
+		if i == 50 {
+			_ = db.Delete([]byte(key))
+		}
+	}
+
+	err := db.Merge()
+	assert.NoError(t, err)
+
+	err = db.Merge()
+	assert.NoError(t, err)
+
+	err = db.Merge()
+	assert.NoError(t, err)
+
+	err = db.Merge()
+	assert.NoError(t, err)
+
+	err = db.Merge()
+	assert.NoError(t, err)
+
+	db.Close()
+
+	db, err = gocask.Open(
+		"foodb",
+		gocask.WithDataDir("./testdata"),
+		gocask.WithMaxDataFileSize(1024),
+	)
+
+	assert.NoError(t, err)
+
+	defer db.Close()
+
+	for i := 0; i < 100; i++ {
+		key := fmt.Sprintf("key_%d", i)
+		want := fmt.Sprintf("val_%d", i)
+
+		val, err := db.Get([]byte(key))
+
+		if i == 50 {
+			assert.ErrorIs(t, err, core.ErrKeyNotFound)
+		} else {
+			assert.Equal(t, []byte(want), val)
+		}
+	}
+}

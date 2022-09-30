@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"github.com/aneshas/gocask/internal/crc"
 	"io"
+	"log"
 	"path"
+	"strings"
 	"sync"
 )
 
@@ -29,14 +31,32 @@ var (
 	ErrInvalidValue = errors.New("gocask: value should not be nil")
 )
 
-// InMemoryDB represents a magic value which can be used instead of db path
-// in order to instantiate in memory file system instead of disk
-const InMemoryDB = "in:mem:db"
+const (
+	// InMemoryDB represents a magic value which can be used instead of db path
+	// in order to instantiate in memory file system instead of disk
+	InMemoryDB = "in:mem:db"
+
+	// DataFileExt represents data file extension
+	DataFileExt = ".csk"
+
+	// HintFileExt represents hint file extension
+	HintFileExt = ".a.csk"
+
+	// TmpFileExt represents temp file extension
+	TmpFileExt = ".tmp"
+)
 
 // FS represents a file system interface
 type FS interface {
 	// Open should open the active data file for the given db path
 	Open(string) (File, error)
+
+	// OTruncate should open an existing file or create a new one
+	// The file should also be truncated to zero size
+	OTruncate(string, string) (File, error)
+
+	// Move should move src file to dst replacing it if it exists
+	Move(path string, src string, dst string) error
 
 	// Rotate should generate and open new data file for the given db path
 	Rotate(string) (File, error)
@@ -104,17 +124,17 @@ func NewDB(dbpath string, fs FS, time Time, cfg Config) (*DB, error) {
 		kd:   newKeyDir(),
 	}
 
-	return &caskDB, caskDB.init(f)
+	return &caskDB, caskDB.init()
 }
 
-func (db *DB) init(activeFile File) error {
+func (db *DB) init() error {
 	return db.fs.Walk(db.path, func(file File) error {
 		err := db.walkFile(file)
 		if err != nil {
 			return err
 		}
 
-		if file.Name() != activeFile.Name() {
+		if !db.isActive(file) {
 			db.kd.resetOffset()
 		}
 
@@ -129,7 +149,14 @@ func (db *DB) walkFile(file File) error {
 	)
 
 	for {
-		err := db.readEntry(r, name)
+		var err error
+
+		if strings.Contains(file.Name(), ".a") {
+			err = db.readHintEntry(r, name)
+		} else {
+			err = db.readEntry(r, name)
+		}
+
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
@@ -140,6 +167,24 @@ func (db *DB) walkFile(file File) error {
 	}
 
 	return nil
+}
+
+func (db *DB) readHintEntry(r *bufio.Reader, file string) error {
+	h, err := parseHintHeader(r)
+	if err != nil {
+		return err
+	}
+
+	key := make([]byte, h.KeySize)
+
+	_, err = io.ReadFull(r, key)
+	if err != nil {
+		return err
+	}
+
+	db.kd.setFromHint(key, h, strings.TrimSuffix(file, ".a"))
+
+	return err
 }
 
 func (db *DB) readEntry(r *bufio.Reader, file string) error {
@@ -201,7 +246,7 @@ func (db *DB) Put(key, val []byte) error {
 		return err
 	}
 
-	err = db.writeKeyVal(h, key, val)
+	err = db.writeKeyVal(db.file, db.kd, h, key, val)
 	if err != nil {
 		return err
 	}
@@ -244,7 +289,7 @@ func (db *DB) Delete(key []byte) error {
 
 	h := newKVHeader(db.time.NowUnix(), nil, key)
 
-	err = db.writeKeyVal(h, nil, key)
+	err = db.writeKeyVal(db.file, db.kd, h, nil, key)
 	if err != nil {
 		return err
 	}
@@ -254,13 +299,13 @@ func (db *DB) Delete(key []byte) error {
 	return nil
 }
 
-func (db *DB) writeKeyVal(h header, key, val []byte) error {
+func (db *DB) writeKeyVal(file File, kd *keyDir, h header, key, val []byte) error {
 	entry := serializeEntry(h, key, val)
 
-	n, err := db.file.Write(entry)
+	n, err := file.Write(entry)
 	if err != nil {
 		if n > 0 {
-			db.kd.advanceOffsetBy(uint32(n))
+			kd.advanceOffsetBy(uint32(n))
 
 			return ErrPartialWrite
 		}
@@ -269,18 +314,153 @@ func (db *DB) writeKeyVal(h header, key, val []byte) error {
 	return err
 }
 
+func (db *DB) Merge() error {
+	done := false
+
+	return db.fs.Walk(db.path, func(file File) error {
+		if done || db.isActive(file) {
+			return nil
+		}
+
+		// TODO extensions as constants and add helper methods here
+		if strings.Contains(file.Name(), ".a") {
+			return nil
+		}
+
+		merge := false
+
+		if true {
+			// TODO check threshold
+			merge = true
+		}
+
+		err := db.mergeAndHint(file, merge)
+		if err != nil {
+			// TODO use logrus
+			log.Println(err)
+		}
+
+		done = true
+
+		return nil
+	})
+}
+
+func (db *DB) isActive(file File) bool {
+	return file.Name() == db.file.Name()
+}
+
+func (db *DB) mergeAndHint(file File, merge bool) error {
+	var (
+		mergedFile File
+		kd         = db.kd
+	)
+
+	if merge {
+		kd = newKeyDir()
+
+		f, err := db.fs.OTruncate(db.path, fmt.Sprintf("%s.merge.tmp", file.Name()))
+		if err != nil {
+			return err
+		}
+
+		mergedFile = f
+
+		defer mergedFile.Close()
+	}
+
+	hintFile, err := db.fs.OTruncate(db.path, fmt.Sprintf("%s.hint.tmp", file.Name()))
+	if err != nil {
+		return err
+	}
+
+	defer hintFile.Close()
+
+	err = db.kd.mapEntries(file.Name(), func(key []byte, entry *kdEntry) error {
+		val, err := db.get(key)
+		if err != nil {
+			if errors.Is(err, ErrCRCFailed) {
+				return nil
+			}
+
+			return err
+		}
+
+		if mergedFile != nil {
+			err = db.writeKeyVal(mergedFile, kd, entry.h, key, val)
+			if err != nil {
+				return err
+			}
+
+			entry = kd.set(key, entry.h, file.Name())
+		}
+
+		return db.writeHint(key, entry, hintFile)
+	})
+	if err != nil {
+		// maybe try to clean up the temp files
+		return err
+	}
+
+	db.m.Lock()
+	defer db.m.Unlock()
+
+	if mergedFile != nil {
+		err = db.fs.Move(db.path, mergedFile.Name(), file.Name())
+		if err != nil {
+			return err
+		}
+	}
+
+	db.kd.merge(kd)
+
+	err = db.fs.Move(db.path, hintFile.Name(), fmt.Sprintf("%s.a", file.Name()))
+	if err != nil {
+		// even if this errors out
+		// keydir has been merged and we should still be in a valid state
+		return err
+	}
+
+	return nil
+}
+
+func (db *DB) writeHint(key []byte, entry *kdEntry, file File) error {
+	h := entry.h.toHint(entry.ValuePos)
+
+	e := serializeHint(h, key)
+
+	n, err := file.Write(e)
+	if err != nil {
+		if n > 0 {
+			return ErrPartialWrite
+		}
+
+		return err
+	}
+
+	return nil
+}
+
 func serializeEntry(h header, key, val []byte) []byte {
 	b := make([]byte, 0, int(headerSize)+len(key)+len(val))
 
+	// reuse buffer for encoding (check / profile for other such optimisations)
 	b = append(b, h.encode()...)
 
 	if key != nil {
 		b = append(b, key...)
 	}
 
-	b = append(b, val...)
+	return append(b, val...)
+}
 
-	return b
+func serializeHint(h hintHeader, key []byte) []byte {
+	b := make([]byte, 0, int(hintHeaderSize)+len(key))
+
+	// reuse buffer for encoding (check / profile for other such optimisations)
+	b = append(b, h.encode()...)
+
+	return append(b, key...)
 }
 
 // Get retrieves a value stored under given key
@@ -301,14 +481,14 @@ func (db *DB) get(key []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	val := make([]byte, ke.ValueSize)
+	val := make([]byte, ke.h.ValueSize)
 
 	_, err = db.fs.ReadFileAt(db.path, ke.File, val, int64(ke.ValuePos))
 	if err != nil {
 		return nil, err
 	}
 
-	if ke.CRC != crc.CalcCRC32(val) {
+	if ke.h.CRC != crc.CalcCRC32(val) {
 		return nil, ErrCRCFailed
 	}
 
