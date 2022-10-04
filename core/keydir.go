@@ -98,11 +98,16 @@ func (kd *keyDir) keys() []string {
 
 func (kd *keyDir) merge(other *keyDir) {
 	for key, entry := range other.entries {
-		newEntry := kd.entries[key]
+		e, ok := kd.entries[key]
+		if !ok {
+			// this accounts for the case when entry has been deleted
+			// in a future data file (in that case it won't be present in the keydir)
+			continue
+		}
 
-		newEntry.File = entry.File
-		newEntry.ValuePos = entry.ValuePos
+		e.File = entry.File
+		e.ValuePos = entry.ValuePos
 
-		kd.entries[key] = newEntry
+		kd.entries[key] = e
 	}
 }

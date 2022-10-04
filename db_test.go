@@ -140,9 +140,14 @@ var mergeCases = []struct {
 	},
 }
 
+// TODO - Test almost all compaction functionality with golden files
 // Merge one file restart, should have all values
+// Failure is tested on disk level (tmp files being skipped)
 // Delete entry, merge one file restart
 // Active file not merged
+// Clean up zero length files (when all keys get deleted)
+// Test startup from hint files
+// Use spy wrappers to test for errors (add err fields or lambdas)
 
 // Thresholds - merge with low threshold, nothing should happen except for hint
 
