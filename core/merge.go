@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strings"
 )
 
 // Merge will try to clean up data files by getting rid of deleted entries (if threshold is met).
@@ -19,8 +18,7 @@ func (db *DB) Merge() error {
 			return nil
 		}
 
-		// TODO extensions as constants and add helper methods here
-		if strings.Contains(file.Name(), ".a") {
+		if isHintFile(file) {
 			return nil
 		}
 
@@ -28,6 +26,10 @@ func (db *DB) Merge() error {
 
 		if true {
 			// TODO check threshold
+			// either from keydir (eg. store stats per file)
+			// or a pass through the file (probably inefficient)
+			// does the first one slow the startup significantly?
+			// less io is probably better
 			merge = true
 		}
 
@@ -47,22 +49,9 @@ func (db *DB) Merge() error {
 }
 
 func (db *DB) mergeAndHint(file File, merge bool) error {
-	var (
-		mergedFile File
-		kd         = db.kd
-	)
-
-	if merge {
-		kd = newKeyDir()
-
-		f, err := db.fs.OTruncate(db.path, fmt.Sprintf("%s.merge.tmp", file.Name()))
-		if err != nil {
-			return err
-		}
-
-		mergedFile = f
-
-		defer mergedFile.Close()
+	mergedFile, kd, err := db.openTempMergeFile(file, merge)
+	if err != nil {
+		return err
 	}
 
 	hintFile, err := db.fs.OTruncate(db.path, fmt.Sprintf("%s.hint.tmp", file.Name()))
@@ -72,46 +61,63 @@ func (db *DB) mergeAndHint(file File, merge bool) error {
 
 	defer hintFile.Close()
 
-	// TODO - We need to walk the file itself since this might cause data loss if some keys are deleted (if key is deleted
-	// it is removed from the keydir)
-	// TODO:
-	// db. mapFile
-	// get key from keydir
-	err = db.kd.mapEntries(file.Name(), func(key []byte, entry *kdEntry) error {
-		val, err := db.get(key)
-		if err != nil {
-			if errors.Is(err, ErrCRCFailed) {
-				return nil
-			}
+	err = mapEntries(file, func(kve kvEntry, name string) error {
+		// check crc and partial writes
+		// get keydir
 
+		kde, err := db.getKDEntry(kve.key)
+		if err != nil {
 			return err
 		}
 
-		if mergedFile != nil {
-			err = db.writeKeyVal(mergedFile, kd, entry.h, key, val)
-			if err != nil {
-				return err
-			}
-
-			entry = kd.set(key, entry.h, file.Name())
+		if kde == nil {
+			return nil
 		}
 
-		return db.writeHint(key, entry, hintFile)
+		if mergedFile != nil {
+			kde, err = db.writeEntry(mergedFile, kd, kve)
+		}
+
+		return db.writeHint(
+			newHintEntry(kde.hintHeader(), kve.key),
+			hintFile,
+		)
 	})
-	if err != nil {
-		// maybe try to clean up the temp files
-		return err
-	}
 
 	return db.commitMerge(file.Name(), mergedFile, hintFile, kd)
 }
 
-func (db *DB) writeHint(key []byte, entry *kdEntry, file File) error {
-	h := entry.h.toHint(entry.ValuePos)
+func (db *DB) openTempMergeFile(file File, merge bool) (File, *keyDir, error) {
+	if !merge {
+		return nil, db.kd, nil
+	}
 
-	e := db.serializeHint(h, key)
+	f, err := db.fs.OTruncate(db.path, fmt.Sprintf("%s.merge.tmp", file.Name()))
+	if err != nil {
+		return nil, nil, err
+	}
 
-	n, err := file.Write(e)
+	return f, newKeyDir(), nil
+}
+
+func (db *DB) getKDEntry(key []byte) (*kdEntry, error) {
+	db.m.RLock()
+	defer db.m.RUnlock()
+
+	entry, err := db.kd.get(key)
+	if err != nil {
+		if errors.Is(err, ErrKeyNotFound) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return entry, nil
+}
+
+func (db *DB) writeHint(he hintEntry, file File) error {
+	n, err := file.Write(he.serialize())
 	if err != nil {
 		if n > 0 {
 			return ErrPartialWrite
@@ -121,15 +127,6 @@ func (db *DB) writeHint(key []byte, entry *kdEntry, file File) error {
 	}
 
 	return nil
-}
-
-func (db *DB) serializeHint(h hintHeader, key []byte) []byte {
-	b := make([]byte, 0, int(hintHeaderSize)+len(key))
-
-	// reuse buffer for encoding (check / profile for other such optimisations)
-	b = append(b, h.encode()...)
-
-	return append(b, key...)
 }
 
 func (db *DB) commitMerge(dest string, mf, hf File, kd *keyDir) error {
@@ -143,11 +140,13 @@ func (db *DB) commitMerge(dest string, mf, hf File, kd *keyDir) error {
 		}
 
 		// TODO log merge
+
+		db.kd.merge(kd)
+
+		// TODO log kd merge
 	}
 
-	db.kd.merge(kd)
-
-	err := db.fs.Move(db.path, hf.Name(), fmt.Sprintf("%s.a", dest))
+	err := db.fs.Move(db.path, hf.Name(), fmt.Sprintf("%s%s", dest, hintFilePartial))
 	if err != nil {
 		// even if this errors out
 		// new keydir has been merged, and we should still be in a valid state

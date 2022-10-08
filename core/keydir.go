@@ -6,6 +6,10 @@ type kdEntry struct {
 	File     string
 }
 
+func (ke kdEntry) hintHeader() hintHeader {
+	return ke.h.toHint(ke.ValuePos)
+}
+
 type keyDir struct {
 	lastOffset uint32
 	entries    map[string]kdEntry
@@ -15,23 +19,6 @@ func newKeyDir() *keyDir {
 	return &keyDir{
 		entries: map[string]kdEntry{},
 	}
-}
-
-func (kd *keyDir) mapEntries(file string, f func([]byte, *kdEntry) error) error {
-	var err error
-
-	for key, entry := range kd.entries {
-		if entry.File != file {
-			continue
-		}
-
-		err = f([]byte(key), &entry)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (kd *keyDir) set(key []byte, h header, file string) *kdEntry {
@@ -48,25 +35,25 @@ func (kd *keyDir) set(key []byte, h header, file string) *kdEntry {
 	return &entry
 }
 
-func (kd *keyDir) setFromHint(key []byte, h hintHeader, file string) *kdEntry {
+func (kd *keyDir) setFromHint(h hintEntry, file string) *kdEntry {
 	entry := kdEntry{
 		h:        h.header,
 		ValuePos: h.ValuePos,
 		File:     file,
 	}
 
-	kd.entries[string(key)] = entry
+	kd.entries[string(h.key)] = entry
 
 	return &entry
 }
 
-func (kd *keyDir) get(key []byte) (kdEntry, error) {
+func (kd *keyDir) get(key []byte) (*kdEntry, error) {
 	ke, ok := kd.entries[string(key)]
 	if !ok {
-		return kdEntry{}, ErrKeyNotFound
+		return nil, ErrKeyNotFound
 	}
 
-	return ke, nil
+	return &ke, nil
 }
 
 func (kd *keyDir) unset(key []byte) {

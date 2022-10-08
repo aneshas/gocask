@@ -46,7 +46,7 @@ func newHeader(crc, t, ksz, vsz uint32) header {
 	}
 }
 
-func (h header) encode() []byte {
+func (h header) serialize() []byte {
 	b := make([]byte, headerSize)
 
 	byteOrder.PutUint32(b[0:4], h.CRC)
@@ -76,7 +76,7 @@ type hintHeader struct {
 	ValuePos uint32
 }
 
-func (h hintHeader) encode() []byte {
+func (h hintHeader) serialize() []byte {
 	b := make([]byte, hintHeaderSize)
 
 	byteOrder.PutUint32(b[0:4], h.CRC)

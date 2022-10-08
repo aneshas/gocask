@@ -3,7 +3,6 @@ package core
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"github.com/aneshas/gocask/internal/crc"
 	"io"
 	"path"
@@ -34,15 +33,6 @@ const (
 	// InMemoryDB represents a magic value which can be used instead of db path
 	// in order to instantiate in memory file system instead of disk
 	InMemoryDB = "in:mem:db"
-
-	// DataFileExt represents data file extension
-	DataFileExt = ".csk"
-
-	// HintFileExt represents hint file extension
-	HintFileExt = ".a.csk"
-
-	// TmpFileExt represents temp file extension
-	TmpFileExt = ".tmp"
 )
 
 // FS represents a file system interface
@@ -131,9 +121,9 @@ func (db *DB) init() error {
 		var err error
 
 		if strings.Contains(file.Name(), ".a") {
-			err = db.mapFile(file, db.readHintEntry)
+			err = mapFile(file, db.indexHint)
 		} else {
-			err = db.mapFile(file, db.readEntry)
+			err = mapFile(file, db.indexEntry)
 		}
 
 		if err != nil {
@@ -148,80 +138,40 @@ func (db *DB) init() error {
 	})
 }
 
-func (db *DB) mapFile(file File, f func(r *bufio.Reader, name string) error) error {
-	var (
-		r    = bufio.NewReader(file)
-		name = file.Name()
-	)
-
-	for {
-		err := f(r, name)
-
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-
-			return fmt.Errorf("gocask: startup error: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func (db *DB) readHintEntry(r *bufio.Reader, file string) error {
-	h, err := parseHintHeader(r)
+func (db *DB) indexHint(r *bufio.Reader, file string) error {
+	hint, err := parseHintEntry(r)
 	if err != nil {
 		return err
 	}
 
-	key := make([]byte, h.KeySize)
-
-	_, err = io.ReadFull(r, key)
-	if err != nil {
-		return err
-	}
-
-	db.kd.setFromHint(key, h, strings.TrimSuffix(file, ".a"))
+	db.kd.setFromHint(hint, strings.TrimSuffix(file, hintFilePartial))
 
 	return err
 }
 
-func (db *DB) readEntry(r *bufio.Reader, file string) error {
-	h, err := parseHeader(r)
+func (db *DB) indexEntry(r *bufio.Reader, file string) error {
+	ke, err := parseKEntry(r)
 	if err != nil {
 		return err
 	}
 
-	keySize := h.KeySize
-
-	if h.isTombstone() {
-		keySize = h.ValueSize
-	}
-
-	key := make([]byte, keySize)
-
-	_, err = io.ReadFull(r, key)
-	if err != nil {
-		return err
-	}
-
-	if h.isTombstone() {
-		db.kd.unset(key)
+	if ke.isTombstone() {
+		db.kd.unset(ke.key)
 
 		return nil
 	}
 
-	_, err = r.Discard(int(h.ValueSize))
+	_, err = r.Discard(int(ke.ValueSize))
 	if err != nil {
 		return err
 	}
 
-	db.kd.set(key, h, file)
+	db.kd.set(ke.key, ke.header, file)
 
-	return err
+	return nil
 }
 
+// Close performs db cleanup
 func (db *DB) Close() error {
 	return db.file.Close()
 }
@@ -239,21 +189,16 @@ func (db *DB) Put(key, val []byte) error {
 	db.m.Lock()
 	defer db.m.Unlock()
 
-	h := newKVHeader(db.time.NowUnix(), key, val)
+	kve := newKVEntry(db.time.NowUnix(), key, val)
 
-	err := db.rotateDataFile(int64(h.entrySize()))
+	err := db.rotateDataFile(int64(kve.header.entrySize()))
 	if err != nil {
 		return err
 	}
 
-	err = db.writeKeyVal(db.file, db.kd, h, key, val)
-	if err != nil {
-		return err
-	}
+	_, err = db.writeEntry(db.file, db.kd, kve)
 
-	db.kd.set(key, h, db.file.Name())
-
-	return nil
+	return err
 }
 
 func (db *DB) rotateDataFile(entrySz int64) error {
@@ -287,9 +232,11 @@ func (db *DB) Delete(key []byte) error {
 		return err
 	}
 
-	h := newKVHeader(db.time.NowUnix(), nil, key)
-
-	err = db.writeKeyVal(db.file, db.kd, h, nil, key)
+	err = db.writeKeyVal(
+		db.file,
+		db.kd,
+		newKVEntry(db.time.NowUnix(), nil, key),
+	)
 	if err != nil {
 		return err
 	}
@@ -299,32 +246,33 @@ func (db *DB) Delete(key []byte) error {
 	return nil
 }
 
-func (db *DB) writeKeyVal(file File, kd *keyDir, h header, key, val []byte) error {
-	entry := db.serializeEntry(h, key, val)
+func (db *DB) writeEntry(file File, kd *keyDir, kve kvEntry) (*kdEntry, error) {
+	err := db.writeKeyVal(file, kd, kve)
+	if err != nil {
+		return nil, err
+	}
+
+	return kd.set(kve.key, kve.header, file.Name()), nil
+}
+
+func (db *DB) writeKeyVal(file File, kd *keyDir, kve kvEntry) error {
+	entry := kve.serialize()
 
 	n, err := file.Write(entry)
 	if err != nil {
 		if n > 0 {
 			kd.advanceOffsetBy(uint32(n))
 
+			// TODO - What if entry has been written partially (in the middle or beginning of the file)
+			// will the startup fail because the headers will not be correct (eg. headers might not be fully written
+			// keys also and values
+			// how do we mitigate this?
+
 			return ErrPartialWrite
 		}
 	}
 
 	return err
-}
-
-func (db *DB) serializeEntry(h header, key, val []byte) []byte {
-	b := make([]byte, 0, int(headerSize)+len(key)+len(val))
-
-	// reuse buffer for encoding (check / profile for other such optimisations)
-	b = append(b, h.encode()...)
-
-	if key != nil {
-		b = append(b, key...)
-	}
-
-	return append(b, val...)
 }
 
 // Get retrieves a value stored under given key
@@ -364,8 +312,12 @@ func (db *DB) Keys() []string {
 	db.m.RLock()
 	defer db.m.RUnlock()
 
+	// TODO - Reuse mapFile maybe
+
 	return db.kd.keys()
 }
+
+// TODO - Reuse mapFile for Fold feature
 
 func (db *DB) isActive(file File) bool {
 	return file.Name() == db.file.Name()

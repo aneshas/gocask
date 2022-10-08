@@ -162,7 +162,7 @@ func TestMerge(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		key := fmt.Sprintf("key_%d", i)
-		val := fmt.Sprintf("val_%d", i)
+		val := fmt.Sprintf("val_asdfadfasfasdfasdfasdfasdfasdfasfdasfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasfsafds_%d", i)
 
 		_ = db.Put([]byte(key), []byte(val))
 
@@ -200,7 +200,7 @@ func TestMerge(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		key := fmt.Sprintf("key_%d", i)
-		want := fmt.Sprintf("val_%d", i)
+		want := fmt.Sprintf("val_asdfadfasfasdfasdfasdfasdfasdfasfdasfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasfsafds_%d", i)
 
 		val, err := db.Get([]byte(key))
 
