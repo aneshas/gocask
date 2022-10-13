@@ -12,7 +12,7 @@ import (
 )
 
 func TestDiskFS_Should_Report_Existing_DB_Named_File_As_An_Error(t *testing.T) {
-	disk := fs.NewDisk()
+	disk := fs.NewDisk(core.GoTime{})
 
 	file, err := disk.Open("testdata/dbfile")
 
@@ -21,7 +21,7 @@ func TestDiskFS_Should_Report_Existing_DB_Named_File_As_An_Error(t *testing.T) {
 }
 
 func TestDiskFS_Should_Create_New_DB(t *testing.T) {
-	disk := fs.NewDisk()
+	disk := fs.NewDisk(core.GoTime{})
 
 	db, err := os.MkdirTemp("", "newdb")
 
@@ -41,7 +41,7 @@ func TestDiskFS_Should_Create_New_DB(t *testing.T) {
 }
 
 func TestDiskFS_Should_Rotate_Active_Data_File_DB(t *testing.T) {
-	disk := fs.NewDisk()
+	disk := fs.NewDisk(core.GoTime{})
 
 	db, _ := os.MkdirTemp("", "newdb")
 
@@ -62,7 +62,7 @@ func TestDiskFS_Should_Rotate_Active_Data_File_DB(t *testing.T) {
 }
 
 func TestDiskFS_Should_Open_Latest_Data_File_For_Existing_DB(t *testing.T) {
-	disk := fs.NewDisk()
+	disk := fs.NewDisk(core.GoTime{})
 
 	file, err := disk.Open("testdata/defaultdb")
 
@@ -71,7 +71,7 @@ func TestDiskFS_Should_Open_Latest_Data_File_For_Existing_DB(t *testing.T) {
 }
 
 func TestDiskFS_Should_Walk_Cask_Data_Files(t *testing.T) {
-	disk := fs.NewDisk()
+	disk := fs.NewDisk(core.GoTime{})
 
 	var files []string
 
@@ -89,7 +89,7 @@ func TestDiskFS_Should_Walk_Cask_Data_Files(t *testing.T) {
 
 func TestDiskFS_Walk_Reports_WalkFn_Error(t *testing.T) {
 	wantErr := errors.New("an error")
-	disk := fs.NewDisk()
+	disk := fs.NewDisk(core.GoTime{})
 
 	err := disk.Walk("testdata/largedb", func(file core.File) error {
 		return wantErr
@@ -99,7 +99,7 @@ func TestDiskFS_Walk_Reports_WalkFn_Error(t *testing.T) {
 }
 
 func TestDiskFS_Walk_Should_Use_Hint_Files(t *testing.T) {
-	disk := fs.NewDisk()
+	disk := fs.NewDisk(core.GoTime{})
 
 	var files []string
 
@@ -122,7 +122,7 @@ func TestDiskFS_Walk_Should_Use_Hint_Files(t *testing.T) {
 }
 
 func TestDiskFS_Walk_Should_Ignore_Tmp_Files(t *testing.T) {
-	disk := fs.NewDisk()
+	disk := fs.NewDisk(core.GoTime{})
 
 	var files []string
 
@@ -163,7 +163,7 @@ func TestDiskFS_Should_Read_File_Value_At_Offset(t *testing.T) {
 		},
 	}
 
-	disk := fs.NewDisk()
+	disk := fs.NewDisk(core.GoTime{})
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("read %s", tc.val), func(t *testing.T) {
@@ -180,7 +180,7 @@ func TestDiskFS_Should_Read_File_Value_At_Offset(t *testing.T) {
 }
 
 func TestDiskFS_Should_Report_Out_Of_Bounds_Read(t *testing.T) {
-	disk := fs.NewDisk()
+	disk := fs.NewDisk(core.GoTime{})
 
 	count := 10
 	data := make([]byte, count)
@@ -191,7 +191,7 @@ func TestDiskFS_Should_Report_Out_Of_Bounds_Read(t *testing.T) {
 }
 
 func TestShould_Read_File_Size(t *testing.T) {
-	disk := fs.NewDisk()
+	disk := fs.NewDisk(core.GoTime{})
 
 	f, _ := disk.Open("./testdata/sizedb")
 
@@ -199,7 +199,7 @@ func TestShould_Read_File_Size(t *testing.T) {
 }
 
 func TestFile_Write_Should_Should_Update_File_Size(t *testing.T) {
-	disk := fs.NewDisk()
+	disk := fs.NewDisk(core.GoTime{})
 
 	db, _ := os.MkdirTemp("", "db0003")
 
@@ -217,7 +217,7 @@ func TestFile_Write_Should_Should_Update_File_Size(t *testing.T) {
 }
 
 func TestReadFileAt_Should_Report_Nonexistent_File_Error(t *testing.T) {
-	disk := fs.NewDisk()
+	disk := fs.NewDisk(core.GoTime{})
 
 	_, err := disk.ReadFileAt("i-do-not", "exist", nil, 0)
 

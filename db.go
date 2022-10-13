@@ -5,7 +5,6 @@ import (
 	"github.com/aneshas/gocask/internal/fs"
 	"os"
 	"path"
-	"time"
 )
 
 const (
@@ -29,7 +28,7 @@ const (
 func Open(dbPath string, opts ...Option) (*core.DB, error) {
 	var caskFS core.FS
 
-	var t goTime
+	var t core.GoTime
 
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -45,7 +44,7 @@ func Open(dbPath string, opts ...Option) (*core.DB, error) {
 		cfg = opt(cfg)
 	}
 
-	caskFS = fs.NewDisk()
+	caskFS = fs.NewDisk(core.GoTime{})
 
 	if dbPath == core.InMemoryDB {
 		caskFS = fs.NewInMemory()
@@ -81,11 +80,4 @@ func WithDataDir(path string) Option {
 
 		return config
 	}
-}
-
-type goTime struct{}
-
-// NowUnix returns current unix timestamp
-func (t goTime) NowUnix() uint32 {
-	return uint32(time.Now().UTC().Unix())
 }

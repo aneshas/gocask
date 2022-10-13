@@ -3,13 +3,14 @@ package core
 import (
 	"errors"
 	"fmt"
-	"log"
 )
 
 // Merge will try to clean up data files by getting rid of deleted entries (if threshold is met).
 // In addition to this it will also build a hint file for every data file in order to speed up the startup time.
-// Each time merge is called it will try to merge the next file that has not been merged.
+// Each time merge is called it will try to merge the next file that has not yet been merged.
 // Merge is fault-tolerant and will retain the database in a valid state even on merge/hint errors
+// Merging is a potentially relatively expensive operation and should be called strategically (eg. not
+// in high-load/high-usage situations. This is why the scheduling is left to the caller.
 func (db *DB) Merge() error {
 	done := false
 
@@ -33,71 +34,85 @@ func (db *DB) Merge() error {
 			merge = true
 		}
 
+		// TODO use logrus
+		// log everything that's interesting
+
 		err := db.mergeAndHint(file, merge)
 		if err != nil {
-			// TODO use logrus
-			// log everything that's interesting
-			// bubble up only unrecoverable errors
-
-			log.Println(err)
+			// log
 		}
 
 		done = true
 
-		return nil
+		return err
 	})
 }
 
 func (db *DB) mergeAndHint(file File, merge bool) error {
-	mergedFile, kd, err := db.openTempMergeFile(file, merge)
+	mergeF, kd, err := db.openMerge(file, merge)
 	if err != nil {
 		return err
 	}
 
-	hintFile, err := db.fs.OTruncate(db.path, fmt.Sprintf("%s.hint.tmp", file.Name()))
+	hintF, err := db.openHint(file)
 	if err != nil {
 		return err
 	}
 
-	defer hintFile.Close()
+	// TODO Log all deferred errs (package-wide)
+	// log however you like, only leave logging destination configurable
+	defer hintF.Close()
 
-	err = mapEntries(file, func(kve kvEntry, name string) error {
-		// check crc and partial writes
-		// get keydir
-
-		kde, err := db.getKDEntry(kve.key)
+	err = mapEntries(file, func(kve kvEntry, name string, err error) error {
 		if err != nil {
+			if errors.Is(err, ErrCRCFailed) {
+				return nil
+			}
+
 			return err
 		}
 
-		if kde == nil {
-			return nil
+		kde, err := db.getKDEntry(kve.key)
+		if err != nil {
+			if errors.Is(err, ErrKeyNotFound) {
+				return nil
+			}
+
+			return err
 		}
 
-		if mergedFile != nil {
-			kde, err = db.writeEntry(mergedFile, kd, kve)
+		if mergeF != nil {
+			kde, err = db.writeEntry(mergeF, kd, kve)
 		}
 
 		return db.writeHint(
 			newHintEntry(kde.hintHeader(), kve.key),
-			hintFile,
+			hintF,
 		)
 	})
 
-	return db.commitMerge(file.Name(), mergedFile, hintFile, kd)
+	return db.commitMerge(file.Name(), mergeF, hintF, kd)
 }
 
-func (db *DB) openTempMergeFile(file File, merge bool) (File, *keyDir, error) {
+func (db *DB) openMerge(file File, merge bool) (File, *keyDir, error) {
 	if !merge {
 		return nil, db.kd, nil
 	}
 
-	f, err := db.fs.OTruncate(db.path, fmt.Sprintf("%s.merge.tmp", file.Name()))
+	f, err := db.openTmpFile(file.Name(), "merge")
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return f, newKeyDir(), nil
+}
+
+func (db *DB) openHint(file File) (File, error) {
+	return db.openTmpFile(file.Name(), "hint")
+}
+
+func (db *DB) openTmpFile(file string, postfix string) (File, error) {
+	return db.fs.OTruncate(db.path, fmt.Sprintf("%s.%s%s", file, postfix, TmpFileExt))
 }
 
 func (db *DB) getKDEntry(key []byte) (*kdEntry, error) {
@@ -106,10 +121,6 @@ func (db *DB) getKDEntry(key []byte) (*kdEntry, error) {
 
 	entry, err := db.kd.get(key)
 	if err != nil {
-		if errors.Is(err, ErrKeyNotFound) {
-			return nil, nil
-		}
-
 		return nil, err
 	}
 

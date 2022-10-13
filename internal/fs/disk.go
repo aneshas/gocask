@@ -9,7 +9,6 @@ import (
 	gopath "path"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 // DiskFile represents file on disk
@@ -39,12 +38,16 @@ func (f *DiskFile) Write(p []byte) (int, error) {
 }
 
 // NewDisk instantiates new disk based file system
-func NewDisk() *Disk {
-	return &Disk{}
+func NewDisk(t core.Time) *Disk {
+	return &Disk{
+		t: t,
+	}
 }
 
 // Disk represents disk based file system
-type Disk struct{}
+type Disk struct {
+	t core.Time
+}
 
 // Open opens a default data file for reading and creates it if it does not exist
 func (fs *Disk) Open(path string) (core.File, error) {
@@ -79,7 +82,7 @@ func (fs *Disk) Rotate(path string) (core.File, error) {
 
 func (fs *Disk) openDataFile(path string, dataFile string, n int) (core.File, error) {
 	if dataFile == "" {
-		dataFile = fmt.Sprintf("data_%d_%d%s", n, time.Now().Unix(), core.DataFileExt)
+		dataFile = fmt.Sprintf("data_%d_%d%s", n, fs.t.NowUnix(), core.DataFileExt)
 	}
 
 	return fs.openFile(gopath.Join(path, dataFile), os.O_RDWR|os.O_CREATE|os.O_APPEND)

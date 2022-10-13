@@ -21,18 +21,18 @@ const (
 	TmpFileExt = ".tmp"
 )
 
-func mapEntries(file File, f func(kve kvEntry, name string) error) error {
+func mapEntries(file File, f func(kve kvEntry, name string, err error) error) error {
 	return mapFile(file, func(r *bufio.Reader, name string) error {
 		kve, err := parseKVEntry(r)
 		if err != nil {
-			return err
+			return f(kvEntry{}, name, err)
 		}
 
 		if kve.isTombstone {
 			return nil
 		}
 
-		return f(kve, name)
+		return f(kve, name, nil)
 	})
 }
 

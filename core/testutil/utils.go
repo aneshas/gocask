@@ -18,6 +18,15 @@ func Entry(now uint32, key, val []byte) []byte {
 	)
 }
 
+func HintEntry(now uint32, key, val []byte) []byte {
+	return AppendBytes(
+		U32ToB(crc.CalcCRC32(val)),
+		U32ToB(now),
+		U32ToB(uint32(len(key))),
+		U32ToB(uint32(len(val))),
+	)
+}
+
 func U32ToB(i uint32) []byte {
 	b := make([]byte, 4)
 

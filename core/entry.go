@@ -2,6 +2,7 @@ package core
 
 import (
 	"bufio"
+	"github.com/aneshas/gocask/internal/crc"
 	"io"
 )
 
@@ -41,6 +42,11 @@ func (he hintEntry) serialize() []byte {
 }
 
 func parseKVEntry(r *bufio.Reader) (kvEntry, error) {
+	// TODO - What if entry has been written partially (in the middle or beginning of the file)
+	// will the startup fail because the headers will not be correct (eg. headers might not be fully written
+	// keys also and values
+	// how do we mitigate this?
+
 	ke, err := parseKEntry(r)
 	if err != nil {
 		return kvEntry{}, err
@@ -57,7 +63,9 @@ func parseKVEntry(r *bufio.Reader) (kvEntry, error) {
 		return kvEntry{}, err
 	}
 
-	// TODO - Check CRC
+	if ke.header.CRC != crc.CalcCRC32(val) {
+		return kvEntry{}, ErrCRCFailed
+	}
 
 	return kvEntry{
 		kEntry: ke,

@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"github.com/aneshas/gocask"
 	"github.com/aneshas/gocask/core"
+	"github.com/aneshas/gocask/core/testutil"
+	"github.com/aneshas/gocask/internal/fs"
 	"github.com/stretchr/testify/assert"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 	"testing"
@@ -119,57 +122,48 @@ func benchDiskPut(b *testing.B, n int) {
 	}
 }
 
-var mergeCases = []struct {
-	key, val string
-}{
-	{
-		key: "foo",
-		val: "foo bar baz",
-	},
-	{
-		key: "john",
-		val: "doe foo bar baz",
-	},
-	{
-		key: "jane",
-		val: "doe foo bar baz jane",
-	},
-	{
-		key: "max",
-		val: "mustermann",
-	},
+func TestGiven_No_Deleted_Entries_Should_Generate_Only_Hints(t *testing.T) {
+	dbPath := os.TempDir()
+	dbName := "mergedb00"
+
+	db := generateMergeDBs(t, 30, dbPath, dbName)
+
+	defer db.Close()
+
+	// TODO Testcases only change db name
+	err := db.Merge()
+
+	assert.NoError(t, err)
+
+	if *genGolden {
+		t.Skip()
+	}
+
+	defer os.RemoveAll(path.Join(dbPath, dbName))
+
+	assertEqualDBs(t, dbPath, dbName)
+
+	// TODO compare folders ?
+	// multiple cases eg:
+	// single file no merge only hint
+	// single file with some deleted
+	// single file all deleted
+	// multiple files
+
+	// test temp files somehow or no?
+
+	// Then
+	// use the same data and test startup
+	// use the same data and test startup (with deleted entries)
 }
 
-// TODO - Test almost all compaction functionality with golden files
-// Merge one file restart, should have all values
-// Failure is tested on disk level (tmp files being skipped)
-// Delete entry, merge one file restart
-// Active file not merged
-// Clean up zero length files (when all keys get deleted)
-// Test startup from hint files
-// Use spy wrappers to test for errors (add err fields or lambdas)
+func TestGiven_No_Deleted_Entries_Should_Generate_All_Hints(t *testing.T) {
+	dbPath := os.TempDir()
+	dbName := "mergedb01"
 
-// Thresholds - merge with low threshold, nothing should happen except for hint
+	db := generateMergeDBs(t, 30, dbPath, dbName)
 
-func TestMerge(t *testing.T) {
-	os.RemoveAll("./testdata/foodb")
-
-	db, _ := gocask.Open(
-		"foodb",
-		gocask.WithDataDir("./testdata"),
-		gocask.WithMaxDataFileSize(1024),
-	)
-
-	for i := 0; i < 100; i++ {
-		key := fmt.Sprintf("key_%d", i)
-		val := fmt.Sprintf("val_asdfadfasfasdfasdfasdfasdfasdfasfdasfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasfsafds_%d", i)
-
-		_ = db.Put([]byte(key), []byte(val))
-
-		if i == 50 {
-			_ = db.Delete([]byte(key))
-		}
-	}
+	defer db.Close()
 
 	err := db.Merge()
 	assert.NoError(t, err)
@@ -186,28 +180,142 @@ func TestMerge(t *testing.T) {
 	err = db.Merge()
 	assert.NoError(t, err)
 
-	db.Close()
+	err = db.Merge()
+	assert.NoError(t, err)
 
-	db, err = gocask.Open(
-		"foodb",
-		gocask.WithDataDir("./testdata"),
-		gocask.WithMaxDataFileSize(1024),
-	)
+	if *genGolden {
+		t.Skip()
+	}
+
+	defer os.RemoveAll(path.Join(dbPath, dbName))
+
+	assertEqualDBs(t, dbPath, dbName)
+}
+
+func TestGiven_No_Deleted_Entries_Should_Cleanup_Deleted_Entries(t *testing.T) {
+	dbPath := os.TempDir()
+	dbName := "mergedb02"
+
+	db := generateMergeDBs(t, 30, dbPath, dbName)
+
+	deleteKeys(t, db, "foo", "john")
+
+	defer db.Close()
+
+	err := db.Merge()
+	assert.NoError(t, err)
+
+	err = db.Merge()
+	assert.NoError(t, err)
+
+	err = db.Merge()
+	assert.NoError(t, err)
+
+	if *genGolden {
+		t.Skip()
+	}
+
+	defer os.RemoveAll(path.Join(dbPath, dbName))
+
+	assertEqualDBs(t, dbPath, dbName)
+}
+
+func TestShould_Startup_From_Zero_Length_Data_And_Hint_Files(t *testing.T) {
+	db, err := gocask.Open("mergedb02", gocask.WithDataDir("./testdata"))
 
 	assert.NoError(t, err)
 
 	defer db.Close()
 
-	for i := 0; i < 100; i++ {
-		key := fmt.Sprintf("key_%d", i)
-		want := fmt.Sprintf("val_asdfadfasfasdfasdfasdfasdfasdfasfdasfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasfsafds_%d", i)
+	for _, tc := range mergeSeed {
 
-		val, err := db.Get([]byte(key))
+		val, err := db.Get([]byte(tc.key))
 
-		if i == 50 {
+		if tc.key == "foo" || tc.key == "john" {
 			assert.ErrorIs(t, err, core.ErrKeyNotFound)
-		} else {
-			assert.Equal(t, []byte(want), val)
+
+			continue
 		}
+
+		assert.NoError(t, err)
+		assert.Equal(t, val, []byte(tc.val))
 	}
 }
+
+func TestShould_Startup_From_Hint_File(t *testing.T) {
+	db, err := gocask.Open("mergedb01", gocask.WithDataDir("./testdata"))
+
+	assert.NoError(t, err)
+
+	defer db.Close()
+
+	for _, tc := range mergeSeed {
+		val, err := db.Get([]byte(tc.key))
+
+		assert.NoError(t, err)
+		assert.Equal(t, val, []byte(tc.val))
+	}
+}
+
+func assertEqualDBs(t *testing.T, dbPath, dbName string) {
+	goldenPath := path.Join("./testdata", dbName)
+	gotPath := path.Join(dbPath, dbName)
+
+	err := exec.Command("diff", "-r", goldenPath, gotPath).Run()
+
+	assert.NoError(t, err)
+}
+
+func deleteKeys(t *testing.T, db *core.DB, keys ...string) {
+	for _, k := range keys {
+		err := db.Delete([]byte(k))
+
+		assert.NoError(t, err)
+	}
+}
+
+func generateMergeDBs(t *testing.T, size int64, dbPath, dbName string) *core.DB {
+	if *genGolden {
+		dbPath = "./testdata"
+	}
+
+	_ = os.RemoveAll(path.Join(dbPath, dbName))
+
+	var tt testutil.Time
+
+	db, err := core.NewDB(dbName, fs.NewDisk(tt), tt, core.Config{
+		MaxDataFileSize: size,
+		DataDir:         dbPath,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, s := range mergeSeed {
+		if s.del {
+
+			continue
+		}
+
+		err = db.Put([]byte(s.key), []byte(s.val))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	return db
+}
+
+// TODO - Test almost all compaction functionality with golden files
+// Merge one file restart, should have all values
+// Failure is tested on disk level (tmp files being skipped)
+// Delete entry, merge one file restart
+// Active file not merged
+// Clean up zero length files (when all keys get deleted) ?
+// Test startup from hint files
+// Use spy wrappers to test for errors (add err fields or lambdas)
+// TODO - Test other aspects from core level that make sense (eg. each iteration picks up
+// nex file, thresholds etc.., here test only data implications, such as merging, hinting, startup,
+// data consistency etc...
+
+// Thresholds - merge with low threshold, nothing should happen except for hint

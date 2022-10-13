@@ -263,11 +263,6 @@ func (db *DB) writeKeyVal(file File, kd *keyDir, kve kvEntry) error {
 		if n > 0 {
 			kd.advanceOffsetBy(uint32(n))
 
-			// TODO - What if entry has been written partially (in the middle or beginning of the file)
-			// will the startup fail because the headers will not be correct (eg. headers might not be fully written
-			// keys also and values
-			// how do we mitigate this?
-
 			return ErrPartialWrite
 		}
 	}
@@ -284,6 +279,11 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 }
 
 func (db *DB) get(key []byte) ([]byte, error) {
+	// TODO - What if entry has been written partially (in the middle or beginning of the file)
+	// will the startup fail because the headers will not be correct (eg. headers might not be fully written
+	// keys also and values
+	// how do we mitigate this?
+
 	if len(key) == 0 {
 		return nil, ErrInvalidKey
 	}
@@ -312,12 +312,8 @@ func (db *DB) Keys() []string {
 	db.m.RLock()
 	defer db.m.RUnlock()
 
-	// TODO - Reuse mapFile maybe
-
 	return db.kd.keys()
 }
-
-// TODO - Reuse mapFile for Fold feature
 
 func (db *DB) isActive(file File) bool {
 	return file.Name() == db.file.Name()

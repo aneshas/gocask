@@ -74,7 +74,7 @@ func TestShould_Fetch_Previously_Saved_Value_On_Disk(t *testing.T) {
 
 	defer os.RemoveAll(dbPath)
 
-	saveAndFetch(t, dbName, caskfs.NewDisk())
+	saveAndFetch(t, dbName, caskfs.NewDisk(core.GoTime{}))
 }
 
 func saveAndFetch(t *testing.T, dbPath string, fs core.FS) {
@@ -526,7 +526,7 @@ func TestShould_Fetch_Value_From_Rotated_File(t *testing.T) {
 
 	var time testutil.Time
 
-	db, _ := core.NewDB(dbPath, caskfs.NewDisk(), time, core.Config{
+	db, _ := core.NewDB(dbPath, caskfs.NewDisk(core.GoTime{}), time, core.Config{
 		MaxDataFileSize: 20,
 	})
 
