@@ -192,7 +192,7 @@ func TestGiven_No_Deleted_Entries_Should_Generate_All_Hints(t *testing.T) {
 	assertEqualDBs(t, dbPath, dbName)
 }
 
-func TestGiven_No_Deleted_Entries_Should_Cleanup_Deleted_Entries(t *testing.T) {
+func TestShould_Cleanup_Deleted_Entries(t *testing.T) {
 	dbPath := os.TempDir()
 	dbName := "mergedb02"
 
@@ -206,6 +206,29 @@ func TestGiven_No_Deleted_Entries_Should_Cleanup_Deleted_Entries(t *testing.T) {
 	assert.NoError(t, err)
 
 	err = db.Merge()
+	assert.NoError(t, err)
+
+	err = db.Merge()
+	assert.NoError(t, err)
+
+	if *genGolden {
+		t.Skip()
+	}
+
+	defer os.RemoveAll(path.Join(dbPath, dbName))
+
+	assertEqualDBs(t, dbPath, dbName)
+}
+
+func TestShould_Skip_Merged_Data_File(t *testing.T) {
+	dbPath := os.TempDir()
+	dbName := "mergedb03"
+
+	db := generateMergeDBs(t, 110, dbPath, dbName)
+
+	defer db.Close()
+
+	err := db.Merge()
 	assert.NoError(t, err)
 
 	err = db.Merge()
@@ -305,17 +328,3 @@ func generateMergeDBs(t *testing.T, size int64, dbPath, dbName string) *core.DB 
 
 	return db
 }
-
-// TODO - Test almost all compaction functionality with golden files
-// Merge one file restart, should have all values
-// Failure is tested on disk level (tmp files being skipped)
-// Delete entry, merge one file restart
-// Active file not merged
-// Clean up zero length files (when all keys get deleted) ?
-// Test startup from hint files
-// Use spy wrappers to test for errors (add err fields or lambdas)
-// TODO - Test other aspects from core level that make sense (eg. each iteration picks up
-// nex file, thresholds etc.., here test only data implications, such as merging, hinting, startup,
-// data consistency etc...
-
-// Thresholds - merge with low threshold, nothing should happen except for hint

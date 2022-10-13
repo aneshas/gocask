@@ -223,3 +223,49 @@ func TestReadFileAt_Should_Report_Nonexistent_File_Error(t *testing.T) {
 
 	assert.Error(t, err)
 }
+
+func TestDiskFS_Should_Truncate_And_Open_Existing_File(t *testing.T) {
+	disk := fs.NewDisk(core.GoTime{})
+
+	db, _ := os.MkdirTemp("", "newdb")
+
+	defer os.RemoveAll(db)
+
+	file := "some_file"
+	fpath := path.Join(db, fmt.Sprintf("%s.csk", file))
+
+	err := os.WriteFile(fpath, []byte("abcdefg"), 0755)
+
+	assert.NoError(t, err)
+
+	f, err := disk.OTruncate(db, file)
+
+	assert.NoError(t, err)
+
+	assert.Equal(t, file, f.Name())
+	assert.Equal(t, int64(0), f.Size())
+
+	assert.FileExists(t, fpath)
+}
+
+func TestDiskFS_Should_Move_File(t *testing.T) {
+	disk := fs.NewDisk(core.GoTime{})
+
+	db, _ := os.MkdirTemp("", "newdb")
+
+	defer os.RemoveAll(db)
+
+	file := "some_file"
+	newFile := "some_file_moved"
+
+	_, err := disk.OTruncate(db, file)
+
+	assert.NoError(t, err)
+
+	err = disk.Move(db, file, newFile)
+
+	assert.NoError(t, err)
+
+	assert.NoFileExists(t, path.Join(db, fmt.Sprintf("%s.csk", file)))
+	assert.FileExists(t, path.Join(db, fmt.Sprintf("%s.csk", newFile)))
+}

@@ -43,12 +43,12 @@ func NewInMemory() *InMemory {
 	return &InMemory{}
 }
 
-func (i *InMemory) Move(path string, src string, dst string) error {
-	panic("not implemented")
+func (i *InMemory) Move(_ string, _ string, _ string) error {
+	return nil
 }
 
 func (i *InMemory) OTruncate(_ string, _ string) (core.File, error) {
-	panic("not implemented")
+	return nil, nil
 }
 
 func (i *InMemory) Open(_ string) (core.File, error) {

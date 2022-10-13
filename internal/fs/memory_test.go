@@ -93,3 +93,20 @@ func TestWalk_Should_Propagate_Error(t *testing.T) {
 
 	assert.ErrorIs(t, e, err)
 }
+
+func TestMove_Is_A_NoOp(t *testing.T) {
+	mem := fs.NewInMemory()
+
+	err := mem.Move("", "", "")
+
+	assert.Nil(t, err)
+}
+
+func TestOTruncate_Is_A_NoOp(t *testing.T) {
+	mem := fs.NewInMemory()
+
+	f, err := mem.OTruncate("", "")
+
+	assert.Nil(t, f)
+	assert.Nil(t, err)
+}
