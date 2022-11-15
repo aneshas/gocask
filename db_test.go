@@ -122,127 +122,6 @@ func benchDiskPut(b *testing.B, n int) {
 	}
 }
 
-func TestGiven_No_Deleted_Entries_Should_Generate_Only_Hints(t *testing.T) {
-	dbPath := os.TempDir()
-	dbName := "mergedb00"
-
-	db := generateMergeDBs(t, 30, dbPath, dbName)
-
-	defer db.Close()
-
-	// TODO Testcases only change db name
-	err := db.Merge()
-
-	assert.NoError(t, err)
-
-	if *genGolden {
-		t.Skip()
-	}
-
-	defer os.RemoveAll(path.Join(dbPath, dbName))
-
-	assertEqualDBs(t, dbPath, dbName)
-
-	// TODO compare folders ?
-	// multiple cases eg:
-	// single file no merge only hint
-	// single file with some deleted
-	// single file all deleted
-	// multiple files
-
-	// test temp files somehow or no?
-
-	// Then
-	// use the same data and test startup
-	// use the same data and test startup (with deleted entries)
-}
-
-func TestGiven_No_Deleted_Entries_Should_Generate_All_Hints(t *testing.T) {
-	dbPath := os.TempDir()
-	dbName := "mergedb01"
-
-	db := generateMergeDBs(t, 30, dbPath, dbName)
-
-	defer db.Close()
-
-	err := db.Merge()
-	assert.NoError(t, err)
-
-	err = db.Merge()
-	assert.NoError(t, err)
-
-	err = db.Merge()
-	assert.NoError(t, err)
-
-	err = db.Merge()
-	assert.NoError(t, err)
-
-	err = db.Merge()
-	assert.NoError(t, err)
-
-	err = db.Merge()
-	assert.NoError(t, err)
-
-	if *genGolden {
-		t.Skip()
-	}
-
-	defer os.RemoveAll(path.Join(dbPath, dbName))
-
-	assertEqualDBs(t, dbPath, dbName)
-}
-
-func TestShould_Cleanup_Deleted_Entries(t *testing.T) {
-	dbPath := os.TempDir()
-	dbName := "mergedb02"
-
-	db := generateMergeDBs(t, 30, dbPath, dbName)
-
-	deleteKeys(t, db, "foo", "john")
-
-	defer db.Close()
-
-	err := db.Merge()
-	assert.NoError(t, err)
-
-	err = db.Merge()
-	assert.NoError(t, err)
-
-	err = db.Merge()
-	assert.NoError(t, err)
-
-	if *genGolden {
-		t.Skip()
-	}
-
-	defer os.RemoveAll(path.Join(dbPath, dbName))
-
-	assertEqualDBs(t, dbPath, dbName)
-}
-
-func TestShould_Skip_Merged_Data_File(t *testing.T) {
-	dbPath := os.TempDir()
-	dbName := "mergedb03"
-
-	db := generateMergeDBs(t, 110, dbPath, dbName)
-
-	defer db.Close()
-
-	err := db.Merge()
-	assert.NoError(t, err)
-
-	err = db.Merge()
-	assert.NoError(t, err)
-
-	if *genGolden {
-		t.Skip()
-	}
-
-	defer os.RemoveAll(path.Join(dbPath, dbName))
-
-	assertEqualDBs(t, dbPath, dbName)
-}
-
 func TestShould_Startup_From_Zero_Length_Data_And_Hint_Files(t *testing.T) {
 	db, err := gocask.Open("mergedb02", gocask.WithDataDir("./testdata"))
 
@@ -316,7 +195,6 @@ func generateMergeDBs(t *testing.T, size int64, dbPath, dbName string) *core.DB 
 
 	for _, s := range mergeSeed {
 		if s.del {
-
 			continue
 		}
 

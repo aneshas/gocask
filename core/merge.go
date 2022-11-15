@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"log"
 )
 
 // Merge will try to clean up data files by getting rid of deleted entries (if threshold is met).
@@ -12,37 +13,38 @@ import (
 // Merging is a potentially relatively expensive operation and should be called strategically (eg. not
 // in high-load/high-usage situations. This is why the scheduling is left to the caller.
 func (db *DB) Merge() error {
-	done := false
+	// TODO - What to do with overriden keys (consider towards
+	// the threshold for a given file)
+	// TODO start with simple threshold (if any deleted or updated keys)
+
+	// build the stats during keydir startup but keep it updated
+	// after put and delete operations
+
+	if db.merging {
+		return nil
+	}
+
+	defer func() {
+		db.merging = false
+	}()
 
 	return db.fs.Walk(db.path, func(file File) error {
-		if done || db.isActive(file) {
+		if db.isActive(file) || isHintFile(file) {
 			return nil
 		}
 
-		if isHintFile(file) {
-			return nil
-		}
-
-		merge := false
-
-		if true {
-			// TODO check threshold
-			// either from keydir (eg. store stats per file)
-			// or a pass through the file (probably inefficient)
-			// does the first one slow the startup significantly?
-			// less io is probably better
-			merge = true
-		}
+		merge := true
+		// TODO check threshold
 
 		// TODO use logrus
 		// log everything that's interesting
+		log.Println("merging ", file.Name())
 
 		err := db.mergeAndHint(file, merge)
 		if err != nil {
 			// log
+			log.Println("error merging ", err)
 		}
-
-		done = true
 
 		return err
 	})
@@ -63,7 +65,7 @@ func (db *DB) mergeAndHint(file File, merge bool) error {
 	// log however you like, only leave logging destination configurable
 	defer hintF.Close()
 
-	err = mapEntries(file, func(kve kvEntry, name string, err error) error {
+	if err := mapEntries(file, func(kve kvEntry, name string, err error) error {
 		if err != nil {
 			if errors.Is(err, ErrCRCFailed) {
 				return nil
@@ -74,22 +76,31 @@ func (db *DB) mergeAndHint(file File, merge bool) error {
 
 		kde, err := db.getKDEntry(kve.key)
 		if err != nil {
-			if errors.Is(err, ErrKeyNotFound) {
-				return nil
-			}
-
-			return err
+			return nil
 		}
 
 		if mergeF != nil {
+			// TODO Err not used
 			kde, err = db.writeEntry(mergeF, kd, kve)
+			if err != nil {
+				return nil
+			}
 		}
 
-		return db.writeHint(
+		err = db.writeHint(
 			newHintEntry(kde.hintHeader(), kve.key),
 			hintF,
 		)
-	})
+		if err != nil {
+			return err
+		}
+
+		db.kd.unTaint(file.Name())
+
+		return nil
+	}); err != nil {
+		return err
+	}
 
 	return db.commitMerge(file.Name(), mergeF, hintF, kd)
 }
@@ -150,11 +161,11 @@ func (db *DB) commitMerge(dest string, mf, hf File, kd *keyDir) error {
 			return err
 		}
 
-		// TODO log merge
+		log.Println("merged ", dest)
 
 		db.kd.merge(kd)
 
-		// TODO log kd merge
+		log.Println("merged keydir for", dest)
 	}
 
 	err := db.fs.Move(db.path, hf.Name(), fmt.Sprintf("%s%s", dest, hintFilePartial))
@@ -162,9 +173,9 @@ func (db *DB) commitMerge(dest string, mf, hf File, kd *keyDir) error {
 		// even if this errors out
 		// new keydir has been merged, and we should still be in a valid state
 		return err
-
-		// TODO log hint
 	}
+
+	log.Println("created hint file for ", dest)
 
 	return nil
 }

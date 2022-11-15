@@ -98,7 +98,7 @@ func TestDiskFS_Walk_Reports_WalkFn_Error(t *testing.T) {
 	assert.ErrorIs(t, err, wantErr)
 }
 
-func TestDiskFS_Walk_Should_Use_Hint_Files(t *testing.T) {
+func TestDiskFS_Walk_Should_Order_Hint_Files_First(t *testing.T) {
 	disk := fs.NewDisk(core.GoTime{})
 
 	var files []string
@@ -111,9 +111,13 @@ func TestDiskFS_Walk_Should_Use_Hint_Files(t *testing.T) {
 
 	wantFiles := []string{
 		"data_0_1664540335.a",
+		"data_0_1664540335",
 		"data_1_1664540335.a",
+		"data_1_1664540335",
 		"data_2_1664540335.a",
+		"data_2_1664540335",
 		"data_3_1664540335.a",
+		"data_3_1664540335",
 		"data_4_1664540335",
 	}
 
@@ -136,7 +140,9 @@ func TestDiskFS_Walk_Should_Ignore_Tmp_Files(t *testing.T) {
 		"data_0_1664540335",
 		"data_1_1664540335",
 		"data_2_1664540335.a",
+		"data_2_1664540335",
 		"data_3_1664540335.a",
+		"data_3_1664540335",
 		"data_4_1664540335",
 	}
 

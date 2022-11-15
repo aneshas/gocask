@@ -2,8 +2,10 @@ package testutil
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/aneshas/gocask/core"
 	"github.com/aneshas/gocask/core/testutil/mocks"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"io"
 	"testing"
@@ -21,6 +23,9 @@ type FS struct {
 
 	Path     string
 	DataFile string
+
+	mergeFile *echoFile
+	hintFile  *echoFile
 }
 
 // NewFS creates new mock FS
@@ -186,6 +191,49 @@ func (fs *FS) WithFailOnReadValueFromFile(err error) *FS {
 // VerifyEntryWritten verifies that entry was bytesWritten
 func (fs *FS) VerifyEntryWritten(t *testing.T, entry []byte) {
 	fs.file.AssertCalled(t, "Write", entry)
+}
+
+// WithMergeSetup setup
+func (fs *FS) WithMergeSetup(file string) *FS {
+	mf := fmt.Sprintf("%s.merge.tmp", file)
+	hf := fmt.Sprintf("%s.hint.tmp", file)
+
+	fs.mergeFile = &echoFile{
+		name:         mf,
+		buffer:       nil,
+		bytesWritten: nil,
+	}
+
+	fs.hintFile = &echoFile{
+		name:         hf,
+		buffer:       nil,
+		bytesWritten: nil,
+	}
+
+	fs.
+		On("OTruncate", fs.Path, mf).
+		Return(fs.mergeFile, nil)
+
+	fs.
+		On("OTruncate", fs.Path, hf).
+		Return(fs.hintFile, nil)
+
+	fs.On("Move", fs.Path, mf, file).Return(nil)
+	fs.On("Move", fs.Path, hf, fmt.Sprintf("%s.a", file)).Return(nil)
+
+	return fs
+}
+
+// VerifyMergeAndHint verifies that merging and hinting took place
+func (fs *FS) VerifyMergeAndHint(t *testing.T, file string, mEntry, hEntry []byte) {
+	mf := fmt.Sprintf("%s.merge.tmp", file)
+	hf := fmt.Sprintf("%s.hint.tmp", file)
+
+	fs.AssertCalled(t, "Move", fs.Path, mf, file)
+	fs.AssertCalled(t, "Move", fs.Path, hf, fmt.Sprintf("%s.a", file))
+
+	assert.Equal(t, mEntry, fs.mergeFile.bytesWritten)
+	assert.Equal(t, hEntry, fs.hintFile.bytesWritten)
 }
 
 type echoFile struct {

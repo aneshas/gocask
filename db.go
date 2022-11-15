@@ -3,8 +3,10 @@ package gocask
 import (
 	"github.com/aneshas/gocask/core"
 	"github.com/aneshas/gocask/internal/fs"
+	"log"
 	"os"
 	"path"
+	"time"
 )
 
 const (
@@ -57,7 +59,21 @@ func Open(dbPath string, opts ...Option) (*core.DB, error) {
 		return nil, err
 	}
 
+	// TODO Add context
+	go runMergeProc(db, 5*time.Second)
+
 	return db, nil
+}
+
+func runMergeProc(db *core.DB, d time.Duration) {
+	for {
+		select {
+		case <-time.After(d):
+			log.Println("merge interval...")
+
+			_ = db.Merge()
+		}
+	}
 }
 
 // Option represents gocask configuration option

@@ -34,7 +34,6 @@ type hintEntry struct {
 func (he hintEntry) serialize() []byte {
 	b := make([]byte, 0, int(hintHeaderSize)+len(he.key))
 
-	// reuse buffer for encoding (check / profile for other such optimisations)
 	return append(
 		append(b, he.hintHeader.serialize()...),
 		he.key...,
@@ -93,7 +92,6 @@ type kvEntry struct {
 func (kv *kvEntry) serialize() []byte {
 	b := make([]byte, 0, int(headerSize)+len(kv.key)+len(kv.val))
 
-	// reuse buffer for encoding (check / profile for other such optimisations)
 	b = append(b, kv.header.serialize()...)
 
 	if kv.key != nil {

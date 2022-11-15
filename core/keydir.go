@@ -11,14 +11,47 @@ func (ke kdEntry) hintHeader() hintHeader {
 }
 
 type keyDir struct {
-	lastOffset uint32
-	entries    map[string]kdEntry
+	lastOffset   uint32
+	entries      map[string]kdEntry
+	taintedFiles map[string]int64
 }
 
 func newKeyDir() *keyDir {
 	return &keyDir{
-		entries: map[string]kdEntry{},
+		entries:      map[string]kdEntry{},
+		taintedFiles: map[string]int64{},
 	}
+}
+
+func (kd *keyDir) taint(key []byte) {
+	entry, err := kd.get(key)
+	if err != nil {
+		return
+	}
+
+	file := entry.File
+
+	n, ok := kd.taintedFiles[file]
+	if !ok {
+		kd.taintedFiles[file] = 1
+
+		return
+	}
+
+	kd.taintedFiles[file] = n + 1
+}
+
+func (kd *keyDir) unTaint(file string) {
+	delete(kd.taintedFiles, file)
+}
+
+func (kd *keyDir) isTainted(file string) bool {
+	n, ok := kd.taintedFiles[file]
+	if !ok {
+		return false
+	}
+
+	return n > 0
 }
 
 func (kd *keyDir) set(key []byte, h header, file string) *kdEntry {

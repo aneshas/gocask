@@ -74,13 +74,14 @@ type Time interface {
 // A Log-Structured Hash Table for Fast Key/Value Data
 // Based on https://riak.com/assets/bitcask-intro.pdf
 type DB struct {
-	cfg  Config
-	time Time
-	fs   FS
-	file File
-	path string
-	kd   *keyDir
-	m    sync.RWMutex
+	cfg     Config
+	time    Time
+	fs      FS
+	file    File
+	path    string
+	kd      *keyDir
+	m       sync.RWMutex
+	merging bool
 }
 
 // DefaultConfig represents default gocask config
@@ -117,12 +118,20 @@ func NewDB(dbpath string, fs FS, time Time, cfg Config) (*DB, error) {
 }
 
 func (db *DB) init() error {
+	hints := make(map[string]bool)
+
 	return db.fs.Walk(db.path, func(file File) error {
 		var err error
 
-		if strings.Contains(file.Name(), ".a") {
+		if isHintFile(file) {
+			hints[strings.Replace(file.Name(), HintFileExt, "", 1)] = true
+
 			err = mapFile(file, db.indexHint)
 		} else {
+			if _, ok := hints[strings.Replace(file.Name(), DataFileExt, "", 1)]; ok {
+				return nil
+			}
+
 			err = mapFile(file, db.indexEntry)
 		}
 
@@ -156,6 +165,7 @@ func (db *DB) indexEntry(r *bufio.Reader, file string) error {
 	}
 
 	if ke.isTombstone() {
+		db.kd.taint(ke.key)
 		db.kd.unset(ke.key)
 
 		return nil
@@ -242,11 +252,13 @@ func (db *DB) Delete(key []byte) error {
 	}
 
 	db.kd.unset(key)
+	db.kd.taint(key)
 
 	return nil
 }
 
 func (db *DB) writeEntry(file File, kd *keyDir, kve kvEntry) (*kdEntry, error) {
+	// TODO - Strip extensions
 	err := db.writeKeyVal(file, kd, kve)
 	if err != nil {
 		return nil, err

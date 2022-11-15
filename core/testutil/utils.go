@@ -18,12 +18,16 @@ func Entry(now uint32, key, val []byte) []byte {
 	)
 }
 
-func HintEntry(now uint32, key, val []byte) []byte {
+func HintEntry(now uint32, key, val []byte, vPos int) []byte {
+	vp := uint32(vPos + 16 + len(key))
+
 	return AppendBytes(
 		U32ToB(crc.CalcCRC32(val)),
 		U32ToB(now),
 		U32ToB(uint32(len(key))),
 		U32ToB(uint32(len(val))),
+		U32ToB(vp),
+		key,
 	)
 }
 

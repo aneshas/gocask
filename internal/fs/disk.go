@@ -129,7 +129,7 @@ func (fs *Disk) createDir(path string) error {
 }
 
 func (fs *Disk) Walk(path string, wf func(core.File) error) error {
-	hints := make(map[string]bool)
+	// hints := make(map[string]bool)
 
 	return filepath.Walk(path, func(p string, info gofs.FileInfo, err error) error {
 		if info.IsDir() ||
@@ -138,13 +138,13 @@ func (fs *Disk) Walk(path string, wf func(core.File) error) error {
 			return nil
 		}
 
-		if strings.Contains(p, core.HintFileExt) {
-			hints[strings.Replace(p, core.HintFileExt, "", 1)] = true
-		} else {
-			if _, ok := hints[strings.Replace(p, core.DataFileExt, "", 1)]; ok {
-				return nil
-			}
-		}
+		// if strings.Contains(p, core.HintFileExt) {
+		// 	hints[strings.Replace(p, core.HintFileExt, "", 1)] = true
+		// } else {
+		// 	if _, ok := hints[strings.Replace(p, core.DataFileExt, "", 1)]; ok {
+		// 		return nil
+		// 	}
+		// }
 
 		file, err := os.OpenFile(p, os.O_RDONLY, 0755)
 		if err != nil {
