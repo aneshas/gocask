@@ -1,11 +1,11 @@
-package gocask_test
+package db_test
 
 import (
 	"bufio"
 	"fmt"
-	"github.com/aneshas/gocask"
 	"github.com/aneshas/gocask/core"
 	"github.com/aneshas/gocask/core/testutil"
+	"github.com/aneshas/gocask/internal/db"
 	"github.com/aneshas/gocask/internal/fs"
 	"github.com/stretchr/testify/assert"
 	"os"
@@ -17,7 +17,7 @@ import (
 )
 
 func TestInMemory_DB_Should_Store_And_Retrieve_A_Set_Of_Key_Val_Pairs(t *testing.T) {
-	db, _ := gocask.Open(core.InMemoryDB)
+	db, _ := db.Open(core.InMemoryDB)
 	defer db.Close()
 
 	writeReadAndAssert(t, db)
@@ -29,10 +29,10 @@ func TestDisk_DB_Should_Store_And_Retrieve_A_Set_Of_Key_Val_Pairs(t *testing.T) 
 
 	defer os.RemoveAll(dbPath)
 
-	db, _ := gocask.Open(
+	db, _ := db.Open(
 		dbName,
-		gocask.WithDataDir(os.TempDir()),
-		gocask.WithMaxDataFileSize(10*gocask.GB),
+		db.WithDataDir(os.TempDir()),
+		db.WithMaxDataFileSize(10*db.GB),
 	)
 	defer db.Close()
 
@@ -102,7 +102,7 @@ func benchDiskPut(b *testing.B, n int) {
 
 	defer os.RemoveAll(dbPath)
 
-	db, err := gocask.Open(dbPath)
+	db, err := db.Open(dbPath)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func benchDiskPut(b *testing.B, n int) {
 }
 
 func TestShould_Startup_From_Zero_Length_Data_And_Hint_Files(t *testing.T) {
-	db, err := gocask.Open("mergedb02", gocask.WithDataDir("./testdata"))
+	db, err := db.Open("mergedb02", db.WithDataDir("./testdata"))
 
 	assert.NoError(t, err)
 
@@ -145,7 +145,7 @@ func TestShould_Startup_From_Zero_Length_Data_And_Hint_Files(t *testing.T) {
 }
 
 func TestShould_Startup_From_Hint_File(t *testing.T) {
-	db, err := gocask.Open("mergedb01", gocask.WithDataDir("./testdata"))
+	db, err := db.Open("mergedb01", db.WithDataDir("./testdata"))
 
 	assert.NoError(t, err)
 

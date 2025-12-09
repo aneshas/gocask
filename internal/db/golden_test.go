@@ -1,4 +1,4 @@
-package gocask_test
+package db_test
 
 import "flag"
 
@@ -31,7 +31,5 @@ var mergeSeed = []struct {
 		val: "abc foo bar baz",
 	},
 }
-
-// var genGolden = flag.Bool("golden", true, "regenerate golden files")
 
 var genGolden = flag.Bool("golden", false, "regenerate golden files")

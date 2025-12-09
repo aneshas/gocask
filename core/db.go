@@ -3,11 +3,12 @@ package core
 import (
 	"bufio"
 	"errors"
-	"github.com/aneshas/gocask/internal/crc"
 	"io"
 	"path"
 	"strings"
 	"sync"
+
+	"github.com/aneshas/gocask/internal/crc"
 )
 
 var (

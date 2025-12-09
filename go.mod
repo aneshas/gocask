@@ -1,6 +1,6 @@
 module github.com/aneshas/gocask
 
-go 1.18
+go 1.21
 
 require (
 	github.com/aneshas/flags v0.1.2

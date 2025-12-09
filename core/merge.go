@@ -20,6 +20,7 @@ func (db *DB) Merge() error {
 	// build the stats during keydir startup but keep it updated
 	// after put and delete operations
 
+	// TODO - Use mutex
 	if db.merging {
 		return nil
 	}
@@ -36,7 +37,7 @@ func (db *DB) Merge() error {
 		merge := true
 		// TODO check threshold
 
-		// TODO use logrus
+		// TODO use go log package
 		// log everything that's interesting
 		log.Println("merging ", file.Name())
 

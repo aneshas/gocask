@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/aneshas/flags"
 	"github.com/aneshas/flags/env"
-	"github.com/aneshas/gocask"
 	"github.com/aneshas/gocask/core"
+	"github.com/aneshas/gocask/internal/db"
 	"github.com/aneshas/gocask/rpc"
 	"log"
 	"net/http"
@@ -25,19 +25,19 @@ func main() {
 
 	fs.Parse(os.Args)
 
-	var opts []gocask.Option
+	var opts []db.Option
 
 	if *maxSize > 0 {
-		opts = append(opts, gocask.WithMaxDataFileSize(*maxSize))
+		opts = append(opts, db.WithMaxDataFileSize(*maxSize))
 	}
 
 	if *dataDir != "" {
-		opts = append(opts, gocask.WithDataDir(*dataDir))
+		opts = append(opts, db.WithDataDir(*dataDir))
 	}
 
 	fmt.Printf("Opening %s database...", *dbName)
 
-	db, err := gocask.Open(*dbName, opts...)
+	db, err := db.Open(*dbName, opts...)
 	if err != nil {
 		log.Fatal(err)
 	}

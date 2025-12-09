@@ -1,4 +1,4 @@
-package gocask
+package db
 
 import (
 	"github.com/aneshas/gocask/core"

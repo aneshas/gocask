@@ -36,6 +36,7 @@ func TestShould_Merge_And_Hint_Single_File_With_A_Missing_Value(t *testing.T) {
 		WithMergeSetup(mergedFile).
 		UseMockDataFiles()
 
+	// TODO Extract to fs.WithSmth
 	for _, tc := range seed {
 		fs.AddMockDataFileEntry(
 			tc.file,
@@ -47,7 +48,7 @@ func TestShould_Merge_And_Hint_Single_File_With_A_Missing_Value(t *testing.T) {
 
 	db, _ := core.NewDB(fs.Path, fs, time, core.DefaultConfig)
 
-	db.Delete([]byte(seed[1].key))
+	_ = db.Delete([]byte(seed[1].key))
 
 	err := db.Merge()
 
@@ -63,8 +64,9 @@ func TestShould_Merge_And_Hint_Single_File_With_A_Missing_Value(t *testing.T) {
 	)
 }
 
+// Add golangci lint
 // Test open merge fails - error is logged
-// Test open hint fails - error is logged
+// Test open hint fails - error is logged (test log for all other cases below where applicable)
 // Test active file is skipped (verify mocks)
 // Test hint file is skipped (verify mocks)
 // Test corrupted value is skipped (crc)
@@ -72,6 +74,7 @@ func TestShould_Merge_And_Hint_Single_File_With_A_Missing_Value(t *testing.T) {
 // Test commit fails (merge move)
 // Test commit fails (hint move)
 // Bug: keydir holds a reference to tmp merge file (keydir merge)
+// Test simple threshold and skip updated in future file (leave for v2)
 // v2:
 // What to do with zero length files (eg. all keys deleted)
 

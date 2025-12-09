@@ -48,7 +48,7 @@ While the server is running you can interact with it via `gccli` binary:
 - `gccli get somekey` - retrieves the value stored under the key
 - `gccli del somekey` - deletes the value stored under the key
 
-`gccli` is just meant as a simple probing tool, and you can generate your own client you can use the .proto definition included (or use the pre generated [go client](./rpc).
+`gccli` is meant to be used as a simple probing tool, and you can generate your own client you can use the .proto definition included (or use the pre generated [go client](./rpc).
  
 If you don't have go installed, you can go to [releases](https://github.com/aneshas/gocask/releases) download latest release and go through the same process as above.
 

@@ -1,5 +1,7 @@
 package core
 
+import "unsafe"
+
 type kdEntry struct {
 	h        header
 	ValuePos uint32
@@ -63,7 +65,7 @@ func (kd *keyDir) set(key []byte, h header, file string) *kdEntry {
 
 	kd.lastOffset = kd.lastOffset + h.entrySize()
 
-	kd.entries[string(key)] = entry
+	kd.entries[btos(key)] = entry
 
 	return &entry
 }
@@ -75,13 +77,13 @@ func (kd *keyDir) setFromHint(h hintEntry, file string) *kdEntry {
 		File:     file,
 	}
 
-	kd.entries[string(h.key)] = entry
+	kd.entries[btos(h.key)] = entry
 
 	return &entry
 }
 
 func (kd *keyDir) get(key []byte) (*kdEntry, error) {
-	ke, ok := kd.entries[string(key)]
+	ke, ok := kd.entries[btos(key)]
 	if !ok {
 		return nil, ErrKeyNotFound
 	}
@@ -90,7 +92,7 @@ func (kd *keyDir) get(key []byte) (*kdEntry, error) {
 }
 
 func (kd *keyDir) unset(key []byte) {
-	delete(kd.entries, string(key))
+	delete(kd.entries, btos(key))
 
 	kd.lastOffset = kd.lastOffset + headerSize + uint32(len(key))
 }
@@ -130,4 +132,14 @@ func (kd *keyDir) merge(other *keyDir) {
 
 		kd.entries[key] = e
 	}
+}
+
+func btos(b []byte) string {
+	l := len(b)
+
+	if l == 0 {
+		return ""
+	}
+
+	return unsafe.String(unsafe.SliceData(b), l)
 }
